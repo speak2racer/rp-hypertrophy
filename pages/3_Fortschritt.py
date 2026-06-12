@@ -54,30 +54,29 @@ with tab1:
             pivot = df.pivot(index="muscle_group", columns="week_number", values="set_count").fillna(0)
             pivot.columns = [f"Woche {c}" for c in pivot.columns]
             pivot = pivot.astype(int)
-            pivot_display = pivot.copy()
+
+            # ── Per-muscle charts with MEV/MAV/MRV bands ──────────────────────
             for mg in pivot.index:
-                if mg in RP_VOLUMES:
-                    pivot_display.loc[mg, "MEV"] = RP_VOLUMES[mg]["MEV"]
-                    pivot_display.loc[mg, "MRV"] = RP_VOLUMES[mg]["MRV"]
-            st.dataframe(pivot_display, use_container_width=True)
-            st.markdown("**Volumen-Verlauf:**")
-            st.line_chart(pivot.T)
-            st.markdown("**Volumen vs. RP-Landmarks:**")
-            for mg in pivot.index:
-                if mg not in RP_VOLUMES:
+                if pivot.loc[mg].sum() == 0:
                     continue
-                vol = RP_VOLUMES[mg]
-                weeks_done = pivot.loc[mg]
-                if weeks_done.sum() == 0:
-                    continue
-                cols = st.columns([2, 5])
-                last_week_sets = int(weeks_done.iloc[-1])
+                vol = RP_VOLUMES.get(mg, {})
+                icon = vol.get("icon", "💪")
+                weeks_data = pivot.loc[mg]
+                last_sets = int(weeks_data.iloc[-1])
                 zone = (
-                    "🟢 MEV" if last_week_sets <= vol["MEV"]
-                    else "🟡 MAV" if last_week_sets <= vol["MAV_high"]
+                    "🟢 im MEV-Bereich" if last_sets <= vol.get("MEV", 99)
+                    else "🟡 im MAV-Bereich" if last_sets <= vol.get("MAV_high", 99)
                     else "🔴 über MRV"
                 )
-                cols[0].metric(mg, f"{last_week_sets} Sets", delta=zone)
+                with st.expander(f"{icon} **{mg}** — Woche {len(weeks_data)}: {last_sets} Sets  {zone}", expanded=True):
+                    chart_df = pd.DataFrame({
+                        "Trainingsvolumen": weeks_data.values,
+                        "MEV": [vol.get("MEV", None)] * len(weeks_data),
+                        "MAV-low": [vol.get("MAV_low", None)] * len(weeks_data),
+                        "MAV-high": [vol.get("MAV_high", None)] * len(weeks_data),
+                        "MRV": [vol.get("MRV", None)] * len(weeks_data),
+                    }, index=weeks_data.index)
+                    st.line_chart(chart_df, use_container_width=True)
 
 # ── Tab 2: Strength Progress ──────────────────────────────────────────────────
 with tab2:

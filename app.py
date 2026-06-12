@@ -135,20 +135,50 @@ if active or deload:
             update_mesocycle_status(meso["id"], "completed")
             st.rerun()
 else:
-    st.markdown("""
-    <div style='background:#111;border:1px solid #1e1e1e;border-radius:10px;
-    padding:40px;text-align:center;margin:20px 0'>
-        <div style='font-size:2.5rem'>🏋️</div>
-        <div style='font-size:1.1rem;font-weight:600;color:#f0f0f0;margin:12px 0 6px'>
-            Kein aktiver Mesozyklus
+    if not completed:
+        # First-time user onboarding
+        st.markdown("""
+        <div style='background:#111;border:1px solid #1e1e1e;border-radius:10px;
+        padding:40px;text-align:center;margin:20px 0'>
+            <div style='font-size:2.5rem'>👋</div>
+            <div style='font-size:1.2rem;font-weight:700;color:#f0f0f0;margin:12px 0 6px'>
+                Willkommen bei RP Hypertrophy!
+            </div>
+            <div style='font-size:0.88rem;color:#888;margin-bottom:8px'>
+                Plane und tracke dein Training nach Renaissance Periodization Prinzipien.
+            </div>
         </div>
-        <div style='font-size:0.85rem;color:#555'>
-            Erstelle einen neuen Zyklus um mit dem Training zu beginnen
+        """, unsafe_allow_html=True)
+
+        st.markdown("### So funktioniert es:")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown("""**1️⃣ Mesozyklus planen**
+Wähle ein Split-Template, such dir Übungen aus und leg das Startvolumen fest.""")
+        c2.markdown("""**2️⃣ Training tracken**
+Trag Gewicht, Wiederholungen und RIR ein. Das 10RM wird automatisch aktualisiert.""")
+        c3.markdown("""**3️⃣ Feedback geben**
+Nach jeder Session: Pump, Soreness und Performance bewerten.""")
+        c4.markdown("""**4️⃣ Kalibrierung nutzen**
+Die App lernt dein MEV/MAV/MRV und passt das Volumen im nächsten Zyklus an.""")
+
+        st.markdown("")
+        if st.button("➕ Ersten Mesozyklus erstellen", type="primary", use_container_width=False):
+            st.switch_page("pages/1_Mesozyklus.py")
+    else:
+        st.markdown("""
+        <div style='background:#111;border:1px solid #1e1e1e;border-radius:10px;
+        padding:40px;text-align:center;margin:20px 0'>
+            <div style='font-size:2.5rem'>🏋️</div>
+            <div style='font-size:1.1rem;font-weight:600;color:#f0f0f0;margin:12px 0 6px'>
+                Kein aktiver Mesozyklus
+            </div>
+            <div style='font-size:0.85rem;color:#555'>
+                Erstelle einen neuen Zyklus um mit dem Training zu beginnen
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("➕ Mesozyklus erstellen", type="primary"):
-        st.switch_page("pages/1_Mesozyklus.py")
+        """, unsafe_allow_html=True)
+        if st.button("➕ Mesozyklus erstellen", type="primary"):
+            st.switch_page("pages/1_Mesozyklus.py")
 
 if completed:
     st.divider()
