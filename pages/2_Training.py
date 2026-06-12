@@ -194,19 +194,29 @@ with tab_new:
     session_sets = {}
     rcfg_active = RIR_CONFIG[active_rir]
 
+    # Frequency per muscle: how many days in the split train this muscle
+    mg_frequency = {}
+    if split_days:
+        for mg_key in session_muscles:
+            mg_frequency[mg_key] = sum(1 for d_muscles in split_days.values() if mg_key in d_muscles)
+
     for mg in session_muscles:
         vol = RP_VOLUMES.get(mg, {})
         cfg = muscle_configs.get(mg, {})
         exercises = cfg.get("exercises", [e["name"] for e in EXERCISES.get(mg, [])][:2])
         start_sets = cfg.get("start_sets", vol.get("MEV", 8))
-        target_sets = (max(vol.get("MEV", 6) - 2, 2) if week_num > meso["weeks"]
+        weekly_sets = (max(vol.get("MEV", 6) - 2, 2) if week_num > meso["weeks"]
                        else min(start_sets + (week_num - 1) * 2, vol.get("MRV", 20)))
+
+        # Divide weekly volume by training frequency → sets per session
+        freq = max(mg_frequency.get(mg, 1), 1)
+        target_sets = max(1, round(weekly_sets / freq))
 
         st.markdown(
             f"<div style='display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:4px'>"
             f"<span style='font-size:1.3rem'>{vol.get('icon','💪')}</span>"
             f"<span style='font-size:1.1rem;font-weight:700'>{mg}</span>"
-            f"<span style='color:#888;font-size:0.85rem'>Ziel: {target_sets} Sets &nbsp;·&nbsp; "
+            f"<span style='color:#888;font-size:0.85rem'>Heute: {target_sets} Sets &nbsp;·&nbsp; Woche: {weekly_sets} ({freq}×) &nbsp;·&nbsp; "
             f"<span style='color:{rcfg_active['color']}'>{rcfg_active['label']}</span></span>"
             f"</div>",
             unsafe_allow_html=True

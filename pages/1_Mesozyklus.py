@@ -168,20 +168,21 @@ for mg in selected_muscles:
         f"{confidence_badge} {source_label}",
         expanded=False
     ):
-        st.caption(freq_label)
+        freq = len(trains_on) if trains_on else 1
+        st.caption(f"{freq_label} · **{freq}× pro Woche** → je Session: MEV {max(1,round(cal['MEV']/freq))}–MRV {max(1,round(cal['MRV']/freq))} Sets")
 
         if cal["source"] == "calibrated":
             with st.container(border=True):
-                st.caption("**Kalibrierungs-Begründung:**")
+                st.caption("**Kalibrierungs-Begründung:** (Wochenwerte)")
                 col_e1, col_e2, col_e3 = st.columns(3)
-                col_e1.info(f"**MEV {cal['MEV']} Sets**\n\n{cal['explanations']['MEV']}")
-                col_e2.success(f"**MAV {cal['MAV_low']}–{cal['MAV_high']} Sets**\n\n{cal['explanations']['MAV']}")
-                col_e3.warning(f"**MRV {cal['MRV']} Sets**\n\n{cal['explanations']['MRV']}")
+                col_e1.info(f"**MEV {cal['MEV']} Sets/Wo.**\n\n{cal['explanations']['MEV']}")
+                col_e2.success(f"**MAV {cal['MAV_low']}–{cal['MAV_high']} Sets/Wo.**\n\n{cal['explanations']['MAV']}")
+                col_e3.warning(f"**MRV {cal['MRV']} Sets/Wo.**\n\n{cal['explanations']['MRV']}")
 
         c1, c2 = st.columns([1, 2])
 
         with c1:
-            st.markdown("**Startvolumen (Woche 1)**")
+            st.markdown("**Startvolumen (Sets / Woche gesamt)**")
             start_sets = st.slider(
                 "Sets in Woche 1",
                 min_value=max(cal["MEV"] - 2, 1),
