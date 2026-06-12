@@ -8,7 +8,7 @@ from datetime import date
 from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
-    update_mesocycle_status, get_ten_rm, get_last_feedback_per_muscle
+    update_mesocycle_status, get_ten_rm, save_ten_rm, get_last_feedback_per_muscle
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
@@ -474,14 +474,27 @@ with tab_new:
     if st.button("💾 Session speichern", type="primary", use_container_width=True):
         workout_id = create_workout(meso["id"], workout_date, week_num, notes)
         perf_map = {"–2": 1, "–1": 2, "=": 3, "+1": 4, "+2": 5}
+        updated_rms = []
         for mg in session_muscles:
             for s_data in session_sets.get(mg, []):
                 save_set(workout_id, mg, s_data["exercise"], s_data["set"],
                          s_data["weight"], s_data["reps"], s_data["rir"])
+                # Auto-update 10RM if implied value is higher
+                w = s_data["weight"]
+                rir = s_data["rir"]
+                if w > 0 and rir in RIR_CONFIG:
+                    pct = RIR_CONFIG[rir]["pct"]
+                    implied_10rm = round(w / pct / 2.5) * 2.5
+                    stored = get_ten_rm(s_data["exercise"]) or 0
+                    if implied_10rm > stored:
+                        save_ten_rm(s_data["exercise"], implied_10rm)
+                        updated_rms.append(f"{s_data['exercise']}: {implied_10rm:.1f} kg")
             fb = session_sets.get(mg + "__feedback", {})
             if fb:
                 save_feedback(workout_id, mg, fb["pump"], fb["soreness"],
                               perf_map.get(fb["performance"], 3), notes)
+        if updated_rms:
+            st.toast(f"10RM aktualisiert: {', '.join(updated_rms)}")
         for k in list(st.session_state.keys()):
             if k.startswith("ex_count") or k == "selected_training_day":
                 del st.session_state[k]
