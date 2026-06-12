@@ -9,7 +9,7 @@ from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
     update_mesocycle_status, advance_mesocycle_week, get_ten_rm, save_ten_rm,
-    get_last_feedback_per_muscle, get_last_workout_per_day
+    get_last_feedback_per_muscle, get_last_workout_per_day, get_last_sets_for_muscle
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
@@ -439,6 +439,25 @@ with tab_new:
 
         # Compact feedback
         with st.expander("💬 Feedback nach letztem Set", expanded=False):
+            # Show last session as reference for Performance rating
+            last_sets = get_last_sets_for_muscle(meso["id"], mg, day_name=selected_day)
+            if last_sets:
+                ref_date = last_sets[0]["date"]
+                ref_week = last_sets[0]["week_number"]
+                ref_lines = " &nbsp;|&nbsp; ".join(
+                    f"{s['exercise']}: <b>{s['weight']}kg × {s['reps']} ({s['rpe']} RIR)</b>"
+                    for s in last_sets
+                )
+                st.markdown(
+                    f"<div style='font-size:0.78rem;color:#888;margin-bottom:8px;padding:6px 8px;"
+                    f"background:#111;border-radius:6px;border-left:3px solid #333'>"
+                    f"Letzte Session ({ref_date}, W{ref_week}): {ref_lines}</div>",
+                    unsafe_allow_html=True
+                )
+                st.caption("**Performance:** Vergleich zu dieser letzten Session.")
+            else:
+                st.caption("**Performance:** Vergleich zur letzten Session an diesem Tag (noch keine Daten).")
+
             _PUMP_OPTS    = ["1 – Kaum spürbar", "2 – Wenig", "3 – Gut", "4 – Stark", "5 – Extrem"]
             _SOR_OPTS     = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]
             _PERF_OPTS    = ["–2 Viel schlechter", "–1 Schlechter", "= Gleich", "+1 Besser", "+2 Viel besser"]

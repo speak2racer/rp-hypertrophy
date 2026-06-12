@@ -641,6 +641,36 @@ def get_ten_rm(exercise: str, user_id=None) -> float | None:
     return row[0] if row else None
 
 
+def get_last_sets_for_muscle(meso_id: int, muscle_group: str, day_name: str | None = None) -> list:
+    """Returns sets from the most recent workout that trained this muscle group (same day if given)."""
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    if day_name:
+        c.execute(
+            f"""SELECT w.date, w.week_number, s.exercise, s.weight, s.reps, s.rpe
+               FROM sets s JOIN workouts w ON s.workout_id = w.id
+               WHERE w.meso_id={p} AND s.muscle_group={p} AND w.day_name={p}
+               ORDER BY w.date DESC, w.id DESC LIMIT 20""",
+            (meso_id, muscle_group, day_name)
+        )
+    else:
+        c.execute(
+            f"""SELECT w.date, w.week_number, s.exercise, s.weight, s.reps, s.rpe
+               FROM sets s JOIN workouts w ON s.workout_id = w.id
+               WHERE w.meso_id={p} AND s.muscle_group={p}
+               ORDER BY w.date DESC, w.id DESC LIMIT 20""",
+            (meso_id, muscle_group)
+        )
+    rows = _fetchall_as_dicts(c)
+    conn.close()
+    # Only keep sets from the single most recent workout date
+    if not rows:
+        return []
+    latest_date = rows[0]["date"]
+    return [r for r in rows if r["date"] == latest_date]
+
+
 def get_last_feedback_per_muscle(meso_id: int) -> dict:
     """Returns the most recent feedback entry per muscle group for a mesocycle."""
     p = _placeholder()
