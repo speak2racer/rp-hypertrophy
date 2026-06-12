@@ -63,16 +63,16 @@ def calibrate_muscle(meso_id: int, muscle_group: str) -> dict:
     # Filter to weeks with feedback
     with_fb = [w for w in weekly if w["pump"] is not None]
 
-    if len(with_fb) < 2:
+    if len(with_fb) < 1:
         return {
             "MEV": base["MEV"], "MAV_low": base["MAV_low"],
             "MAV_high": base["MAV_high"], "MRV": base["MRV"],
             "recommended_start": base["MEV"],
             "source": "literature",
             "confidence": "low",
-            "explanations": {"MEV": "Zu wenig Daten — Literaturwert verwendet.",
-                             "MAV": "Zu wenig Daten — Literaturwert verwendet.",
-                             "MRV": "Zu wenig Daten — Literaturwert verwendet."},
+            "explanations": {"MEV": "Noch kein Feedback — Literaturwert.",
+                             "MAV": "Noch kein Feedback — Literaturwert.",
+                             "MRV": "Noch kein Feedback — Literaturwert."},
         }
 
     # ── MEV detection ─────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ def calibrate_muscle(meso_id: int, muscle_group: str) -> dict:
         "MRV": detected_mrv,
         "recommended_start": recommended_start,
         "source": "calibrated",
-        "confidence": "high" if len(with_fb) >= 4 else "medium",
+        "confidence": "high" if len(with_fb) >= 4 else ("medium" if len(with_fb) >= 2 else "low"),
         "explanations": {
             "MEV": mev_explanation,
             "MAV": mav_explanation,
@@ -160,15 +160,19 @@ def calibrate_muscle(meso_id: int, muscle_group: str) -> dict:
 
 
 def get_best_previous_meso(muscle_group: str, exclude_meso_id: int = None) -> dict | None:
-    """Returns the most recent completed mesocycle that trained this muscle group."""
+    """Returns the most recent meso (active or completed) that trained this muscle group."""
     mesocycles = get_mesocycles()
-    completed = [
+    candidates = [
         m for m in mesocycles
-        if m["status"] == "completed"
+        if m["status"] in ("completed", "active", "deload")
         and muscle_group in m.get("muscle_groups", [])
         and (exclude_meso_id is None or m["id"] != exclude_meso_id)
     ]
-    return completed[0] if completed else None
+    # Prefer completed, then active with most feedback weeks
+    completed = [m for m in candidates if m["status"] == "completed"]
+    if completed:
+        return completed[0]
+    return candidates[0] if candidates else None
 
 
 def get_calibrated_volumes(muscle_group: str, exclude_meso_id: int = None) -> dict:
