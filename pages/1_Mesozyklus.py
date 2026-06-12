@@ -41,31 +41,37 @@ st.divider()
 # ── Step 2: Split Template ────────────────────────────────────────────────────
 st.subheader("2. Split-Template wählen")
 
-# Template cards
-template_cols = st.columns(4)
-for i, name in enumerate([n for n in TEMPLATE_NAMES if n != "Custom"]):
+_template_options = [n for n in TEMPLATE_NAMES if n != "Custom"] + ["✏️ Eigenes Template"]
+
+def _template_label(name: str) -> str:
+    if name == "✏️ Eigenes Template":
+        return "✏️ Eigenes Template"
     tmpl = TEMPLATES[name]
     all_muscles = list(dict.fromkeys(mg for mgs in tmpl["days"].values() for mg in mgs))
     icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in all_muscles)
     num_days = len(tmpl["days"])
-    with template_cols[i % 4]:
-        if st.button(
-            f"**{name}**\n{tmpl['description']}\n_{num_days} Tage_ · {icons}",
-            key=f"tmpl_{name}",
-            use_container_width=True,
-        ):
-            st.session_state["selected_template"] = name
+    return f"{name} — {num_days} Tage · {icons} · {tmpl['description']}"
 
-if st.button("✏️ Eigenes Template erstellen", use_container_width=False):
-    st.session_state["selected_template"] = "Custom"
+_current = st.session_state.get("selected_template", None)
+_default_idx = (
+    _template_options.index(_current)
+    if _current and _current in _template_options
+    else (0 if _current != "Custom" else len(_template_options) - 1)
+)
 
-selected_template_name = st.session_state.get("selected_template", None)
+_chosen = st.selectbox(
+    "Template",
+    options=_template_options,
+    index=_default_idx,
+    format_func=_template_label,
+)
+_new_selection = "Custom" if _chosen == "✏️ Eigenes Template" else _chosen
 
-if not selected_template_name:
-    st.info("Wähle ein Template um fortzufahren.")
-    st.stop()
+if st.session_state.get("selected_template") != _new_selection:
+    st.session_state["selected_template"] = _new_selection
+    st.rerun()
 
-st.success(f"✅ Template gewählt: **{selected_template_name}**")
+selected_template_name = _new_selection
 
 # ── Step 2b: Custom template builder ─────────────────────────────────────────
 if selected_template_name == "Custom":
