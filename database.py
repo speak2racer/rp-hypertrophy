@@ -207,6 +207,40 @@ _SCHEMA_POSTGRES = """
 """
 
 
+def _migrate(conn):
+    """Add columns / tables that were added after initial deploy."""
+    c = conn.cursor()
+    if _use_postgres():
+        migrations = [
+            "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
+            "ALTER TABLE ten_rm ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
+            # Drop old unique constraint on exercise alone and replace with (user_id, exercise)
+            # Safe to ignore errors if constraint doesn't exist
+        ]
+        for sql in migrations:
+            try:
+                c.execute(sql)
+            except Exception:
+                pass
+        # Recreate unique constraint on ten_rm if needed
+        try:
+            c.execute("ALTER TABLE ten_rm DROP CONSTRAINT IF EXISTS ten_rm_exercise_key")
+            c.execute("ALTER TABLE ten_rm ADD CONSTRAINT ten_rm_user_exercise UNIQUE (user_id, exercise)")
+        except Exception:
+            pass
+    else:
+        # SQLite: try adding columns, ignore if already exist
+        for sql in [
+            "ALTER TABLE mesocycles ADD COLUMN user_id INTEGER",
+            "ALTER TABLE ten_rm ADD COLUMN user_id INTEGER",
+        ]:
+            try:
+                c.execute(sql)
+            except Exception:
+                pass
+    conn.commit()
+
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -218,6 +252,7 @@ def init_db():
     else:
         conn.executescript(_SCHEMA_SQLITE)
     conn.commit()
+    _migrate(conn)
     conn.close()
 
 
