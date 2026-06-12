@@ -8,8 +8,8 @@ from datetime import date
 from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
-    update_mesocycle_status, get_ten_rm, save_ten_rm, get_last_feedback_per_muscle,
-    get_last_workout_per_day
+    update_mesocycle_status, advance_mesocycle_week, get_ten_rm, save_ten_rm,
+    get_last_feedback_per_muscle, get_last_workout_per_day
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
@@ -116,10 +116,8 @@ if not active:
     st.stop()
 
 meso = active[0]
-start = date.fromisoformat(meso["start_date"])
-days_in = (date.today() - start).days
-current_week = min(days_in // 7 + 1, meso["weeks"])
-is_deload = current_week > meso["weeks"] or meso["status"] == "deload"
+current_week = meso.get("current_week") or 1
+is_deload = meso["status"] == "deload"
 muscle_configs = get_muscle_configs(meso["id"])
 split_days: dict = meso.get("split_days") or {}
 split_order: list = meso.get("split_order") or list(split_days.keys())
@@ -168,11 +166,31 @@ if not is_deload:
         "</div>",
         unsafe_allow_html=True
     )
-else:
-    st.info("Deload-Woche — 2 Sets, ~87% vom 10RM, halbe Wiederholungszahl.")
-    if st.button("Deload abschließen"):
-        update_mesocycle_status(meso["id"], "completed")
+# ── Week / Meso controls ──────────────────────────────────────────────────────
+st.divider()
+if is_deload:
+    st.info(f"**Deload-Woche** — 65% vom 10RM, ~5 RIR, halbes Volumen. Erholung für den nächsten Zyklus.")
+    if st.button("✅ Deload & Mesozyklus abschließen", type="primary"):
+        result = advance_mesocycle_week(meso["id"], meso["weeks"])
+        st.success("Mesozyklus abgeschlossen!")
         st.rerun()
+else:
+    c_adv, c_end = st.columns([2, 1])
+    with c_adv:
+        if st.button(f"⏭ Woche {current_week} abschließen → Woche {current_week + 1}", use_container_width=True):
+            result = advance_mesocycle_week(meso["id"], meso["weeks"])
+            if result == "deload":
+                st.success("Alle Trainingswochen abgeschlossen — Deload-Woche startet!")
+            else:
+                st.success(f"Woche {current_week + 1} gestartet.")
+            st.rerun()
+    with c_end:
+        with st.popover("⚙️ Meso beenden", use_container_width=True):
+            st.warning("Mesozyklus sofort als abgeschlossen markieren?")
+            if st.button("Ja, abschließen", type="primary"):
+                update_mesocycle_status(meso["id"], "completed")
+                st.rerun()
+st.divider()
 
 # RIR banner
 rcfg_pct = int(rcfg["pct"] * 100)

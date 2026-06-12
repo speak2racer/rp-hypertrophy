@@ -225,6 +225,7 @@ def _migrate(conn):
             "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
             "ALTER TABLE ten_rm ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
             "ALTER TABLE workouts ADD COLUMN IF NOT EXISTS day_name TEXT",
+            "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS current_week INTEGER DEFAULT 1",
             # Drop old unique constraint on exercise alone and replace with (user_id, exercise)
             # Safe to ignore errors if constraint doesn't exist
         ]
@@ -254,6 +255,7 @@ def _migrate(conn):
             "ALTER TABLE mesocycles ADD COLUMN user_id INTEGER",
             "ALTER TABLE ten_rm ADD COLUMN user_id INTEGER",
             "ALTER TABLE workouts ADD COLUMN day_name TEXT",
+            "ALTER TABLE mesocycles ADD COLUMN current_week INTEGER DEFAULT 1",
             """CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -353,6 +355,41 @@ def update_mesocycle_status(meso_id, status):
     conn.cursor().execute(f"UPDATE mesocycles SET status={p} WHERE id={p}", (status, meso_id))
     conn.commit()
     conn.close()
+
+
+def advance_mesocycle_week(meso_id: int, total_weeks: int) -> str:
+    """
+    Increments current_week by 1.
+    - If new week > total_weeks: sets status='deload', returns 'deload'
+    - If status was 'deload': sets status='completed', returns 'completed'
+    - Otherwise returns 'advanced'
+    """
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"SELECT current_week, status FROM mesocycles WHERE id={p}", (meso_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return "not_found"
+    cw = row[0] or 1
+    status = row[1]
+    if status == "deload":
+        c.execute(f"UPDATE mesocycles SET status='completed' WHERE id={p}", (meso_id,))
+        conn.commit()
+        conn.close()
+        return "completed"
+    new_week = cw + 1
+    if new_week > total_weeks:
+        c.execute(f"UPDATE mesocycles SET current_week={p}, status='deload' WHERE id={p}",
+                  (new_week, meso_id))
+        conn.commit()
+        conn.close()
+        return "deload"
+    c.execute(f"UPDATE mesocycles SET current_week={p} WHERE id={p}", (new_week, meso_id))
+    conn.commit()
+    conn.close()
+    return "advanced"
 
 
 def delete_mesocycle(meso_id):
