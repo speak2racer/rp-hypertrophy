@@ -7,6 +7,7 @@ from datetime import date
 from database import get_mesocycles, update_mesocycle_status, delete_mesocycle
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
+from auth import login_user, register_user, get_current_user, render_sidebar_user
 
 st.set_page_config(
     page_title="RP Hypertrophy",
@@ -16,12 +17,59 @@ st.set_page_config(
 )
 inject_css()
 
-mesocycles = get_mesocycles()
+# ── Auth Gate ─────────────────────────────────────────────────────────────────
+if not get_current_user():
+    st.markdown("""
+    <div style='max-width:400px;margin:60px auto'>
+        <div style='text-align:center;margin-bottom:32px'>
+            <div style='font-size:3rem'>🏋️</div>
+            <div style='font-size:1.6rem;font-weight:700;color:#f0f0f0;margin-top:8px'>RP Hypertrophy</div>
+            <div style='font-size:0.85rem;color:#555;margin-top:4px'>Renaissance Periodization Training</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_login, tab_register = st.tabs(["Anmelden", "Registrieren"])
+
+    with tab_login:
+        with st.form("login_form"):
+            username = st.text_input("Benutzername")
+            password = st.text_input("Passwort", type="password")
+            submitted = st.form_submit_button("Anmelden", type="primary", use_container_width=True)
+        if submitted:
+            ok, msg, user = login_user(username, password)
+            if ok:
+                st.session_state["auth_user"] = user
+                st.rerun()
+            else:
+                st.error(msg)
+
+    with tab_register:
+        with st.form("register_form"):
+            new_user = st.text_input("Benutzername wählen")
+            new_pw = st.text_input("Passwort wählen", type="password")
+            new_pw2 = st.text_input("Passwort wiederholen", type="password")
+            submitted2 = st.form_submit_button("Registrieren", type="primary", use_container_width=True)
+        if submitted2:
+            if new_pw != new_pw2:
+                st.error("Passwörter stimmen nicht überein.")
+            else:
+                ok, msg = register_user(new_user, new_pw)
+                if ok:
+                    st.success(msg + " Du kannst dich jetzt anmelden.")
+                else:
+                    st.error(msg)
+    st.stop()
+
+# ── Logged in ─────────────────────────────────────────────────────────────────
+user = get_current_user()
+render_sidebar_user()
+
+mesocycles = get_mesocycles(user_id=user["id"])
 active = [m for m in mesocycles if m["status"] == "active"]
 deload = [m for m in mesocycles if m["status"] == "deload"]
 completed = [m for m in mesocycles if m["status"] == "completed"]
 
-# ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class='page-header'>
     <p class='page-title'>RP Hypertrophy</p>
@@ -29,7 +77,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Active Meso ───────────────────────────────────────────────────────────────
 if active or deload:
     meso = (active or deload)[0]
     start = date.fromisoformat(meso["start_date"])
@@ -42,7 +89,6 @@ if active or deload:
         if is_deload else
         "<span class='badge badge-orange'>Aktiv</span>"
     )
-
     st.markdown(f"""
     <div class='mg-card'>
         <div class='mg-card-header'>
@@ -83,7 +129,6 @@ if active or deload:
         if st.button("✅ Deload abschließen & Zyklus beenden"):
             update_mesocycle_status(meso["id"], "completed")
             st.rerun()
-
 else:
     st.markdown("""
     <div style='background:#111;border:1px solid #1e1e1e;border-radius:10px;
@@ -100,7 +145,6 @@ else:
     if st.button("➕ Mesozyklus erstellen", type="primary"):
         st.switch_page("pages/1_Mesozyklus.py")
 
-# ── History ───────────────────────────────────────────────────────────────────
 if completed:
     st.divider()
     st.markdown("**Abgeschlossene Zyklen**")

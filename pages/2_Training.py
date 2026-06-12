@@ -13,9 +13,12 @@ from database import (
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
 from styles import inject_css
+from auth import require_auth, render_sidebar_user
 
 st.set_page_config(page_title="Training", page_icon="🏋️", layout="wide")
 inject_css()
+user = require_auth()
+render_sidebar_user()
 
 # ── RIR logic (RP: 3→3→2→2→1 for 5 weeks) ───────────────────────────────────
 
@@ -100,7 +103,7 @@ def recommended_exercises(sets: int) -> int:
     return 3
 
 # ── Active mesocycle ──────────────────────────────────────────────────────────
-mesocycles = get_mesocycles()
+mesocycles = get_mesocycles(user_id=user["id"])
 active = [m for m in mesocycles if m["status"] in ("active", "deload")]
 
 if not active:
@@ -322,7 +325,7 @@ with tab_new:
                 )
 
                 # Weight suggestion from stored 10RM
-                stored_10rm = get_ten_rm(chosen_ex)
+                stored_10rm = get_ten_rm(chosen_ex, user_id=user["id"])
                 if stored_10rm and stored_10rm > 0:
                     w_sug = suggested_weight(stored_10rm, active_rir)
                     st.markdown(
@@ -429,9 +432,9 @@ with tab_new:
                 if w > 0 and rir in RIR_CONFIG:
                     pct = RIR_CONFIG[rir]["pct"]
                     implied_10rm = round(w / pct / 2.5) * 2.5
-                    stored = get_ten_rm(s_data["exercise"]) or 0
+                    stored = get_ten_rm(s_data["exercise"], user_id=user["id"]) or 0
                     if implied_10rm > stored:
-                        save_ten_rm(s_data["exercise"], implied_10rm)
+                        save_ten_rm(s_data["exercise"], implied_10rm, user_id=user["id"])
                         updated_rms.append(f"{s_data['exercise']}: {implied_10rm:.1f} kg")
             fb = session_sets.get(mg + "__feedback", {})
             if fb:

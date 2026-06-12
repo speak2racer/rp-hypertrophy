@@ -5,12 +5,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import streamlit as st
 import pandas as pd
 from styles import inject_css
+from auth import require_auth, render_sidebar_user
 from database import get_ten_rm, save_ten_rm, get_all_ten_rms
 from data.exercises import EXERCISES
 from data.rp_volumes import RP_VOLUMES
 
 st.set_page_config(page_title="10RM", page_icon="⚖️", layout="wide")
 inject_css()
+user = require_auth()
+render_sidebar_user()
 st.markdown("""
 <div class='page-header'>
     <p class='page-title'>⚖️ 10RM-Werte</p>
@@ -23,7 +26,7 @@ for mg, ex_list in EXERCISES.items():
     for ex in ex_list:
         all_exercises.append({"muscle_group": mg, "name": ex["name"], "sfr": ex.get("sfr", "")})
 
-existing_rms = get_all_ten_rms()
+existing_rms = get_all_ten_rms(user_id=user["id"])
 mg_order = list(dict.fromkeys(e["muscle_group"] for e in all_exercises))
 updated = {}
 
@@ -50,14 +53,14 @@ for mg in mg_order:
 if updated:
     if st.button("💾 Speichern", type="primary"):
         for ex_name, weight in updated.items():
-            save_ten_rm(ex_name, weight)
+            save_ten_rm(ex_name, weight, user_id=user["id"])
         st.success(f"✅ {len(updated)} Wert(e) gespeichert.")
         st.rerun()
 
 st.divider()
 st.subheader("Übersicht")
 
-existing_rms = get_all_ten_rms()
+existing_rms = get_all_ten_rms(user_id=user["id"])
 rm_rows = []
 for ex in all_exercises:
     w = existing_rms.get(ex["name"])

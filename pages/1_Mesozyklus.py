@@ -7,6 +7,7 @@ import pandas as pd
 from datetime import date
 from data.rp_volumes import RP_VOLUMES, MUSCLE_GROUPS
 from styles import inject_css
+from auth import require_auth, render_sidebar_user
 from data.exercises import EXERCISES
 from data.templates import TEMPLATES, TEMPLATE_NAMES
 from database import create_mesocycle, save_muscle_config, get_mesocycles, update_mesocycle_status
@@ -14,6 +15,8 @@ from calibration import get_calibrated_volumes
 
 st.set_page_config(page_title="Mesozyklus-Planer", page_icon="📅", layout="wide")
 inject_css()
+user = require_auth()
+render_sidebar_user()
 st.markdown("""
 <div class='page-header'>
     <p class='page-title'>📅 Mesozyklus-Planer</p>
@@ -269,7 +272,7 @@ st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=Tr
 st.divider()
 
 if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name):
-    for m in get_mesocycles():
+    for m in get_mesocycles(user_id=user["id"]):
         if m["status"] == "active":
             update_mesocycle_status(m["id"], "completed")
 
@@ -278,6 +281,7 @@ if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name)
         split_template=selected_template_name,
         split_days=split_days,
         split_order=split_order,
+        user_id=user["id"],
     )
 
     for mg, cfg in muscle_configs.items():

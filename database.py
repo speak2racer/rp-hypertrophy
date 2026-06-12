@@ -65,8 +65,16 @@ def _fetchone_as_dict(cursor) -> dict | None:
 # ── Schema init ───────────────────────────────────────────────────────────────
 
 _SCHEMA_SQLITE = """
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS mesocycles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER REFERENCES users(id),
         name TEXT NOT NULL,
         start_date TEXT NOT NULL,
         weeks INTEGER NOT NULL DEFAULT 5,
@@ -121,15 +129,25 @@ _SCHEMA_SQLITE = """
     );
     CREATE TABLE IF NOT EXISTS ten_rm (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exercise TEXT NOT NULL UNIQUE,
+        user_id INTEGER REFERENCES users(id),
+        exercise TEXT NOT NULL,
         weight REAL NOT NULL,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, exercise)
     );
 """
 
 _SCHEMA_POSTGRES = """
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS mesocycles (
         id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
         name TEXT NOT NULL,
         start_date TEXT NOT NULL,
         weeks INTEGER NOT NULL DEFAULT 5,
@@ -180,9 +198,11 @@ _SCHEMA_POSTGRES = """
     );
     CREATE TABLE IF NOT EXISTS ten_rm (
         id SERIAL PRIMARY KEY,
-        exercise TEXT NOT NULL UNIQUE,
+        user_id INTEGER REFERENCES users(id),
+        exercise TEXT NOT NULL,
         weight REAL NOT NULL,
-        updated_at TIMESTAMP DEFAULT NOW()
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, exercise)
     );
 """
 
@@ -211,17 +231,18 @@ def _decode_meso(d: dict) -> dict:
 
 
 def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
-                     split_template=None, split_days=None, split_order=None):
+                     split_template=None, split_days=None, split_order=None,
+                     user_id=None):
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
     if _use_postgres():
         c.execute(
             f"""INSERT INTO mesocycles
-               (name, start_date, weeks, deload_week, muscle_groups,
+               (user_id, name, start_date, weeks, deload_week, muscle_groups,
                 split_template, split_days, split_order)
-               VALUES ({p},{p},{p},{p},{p},{p},{p},{p}) RETURNING id""",
-            (name, str(start_date), weeks, deload_week, json.dumps(muscle_groups),
+               VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p}) RETURNING id""",
+            (user_id, name, str(start_date), weeks, deload_week, json.dumps(muscle_groups),
              split_template, json.dumps(split_days) if split_days else None,
              json.dumps(split_order) if split_order else None)
         )
@@ -229,10 +250,10 @@ def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
     else:
         c.execute(
             f"""INSERT INTO mesocycles
-               (name, start_date, weeks, deload_week, muscle_groups,
+               (user_id, name, start_date, weeks, deload_week, muscle_groups,
                 split_template, split_days, split_order)
-               VALUES ({p},{p},{p},{p},{p},{p},{p},{p})""",
-            (name, str(start_date), weeks, deload_week, json.dumps(muscle_groups),
+               VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p})""",
+            (user_id, name, str(start_date), weeks, deload_week, json.dumps(muscle_groups),
              split_template, json.dumps(split_days) if split_days else None,
              json.dumps(split_order) if split_order else None)
         )
@@ -242,10 +263,14 @@ def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
     return meso_id
 
 
-def get_mesocycles():
+def get_mesocycles(user_id=None):
+    p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT * FROM mesocycles ORDER BY created_at DESC")
+    if user_id:
+        c.execute(f"SELECT * FROM mesocycles WHERE user_id={p} ORDER BY created_at DESC", (user_id,))
+    else:
+        c.execute("SELECT * FROM mesocycles ORDER BY created_at DESC")
     rows = _fetchall_as_dicts(c)
     conn.close()
     return [_decode_meso(r) for r in rows]
@@ -474,31 +499,31 @@ def get_all_feedback_for_meso(meso_id):
 
 # ── 10RM ─────────────────────────────────────────────────────────────────────
 
-def save_ten_rm(exercise: str, weight: float):
+def save_ten_rm(exercise: str, weight: float, user_id=None):
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
     if _use_postgres():
         c.execute(
-            f"""INSERT INTO ten_rm (exercise, weight) VALUES ({p},{p})
-               ON CONFLICT (exercise) DO UPDATE SET weight={p}, updated_at=NOW()""",
-            (exercise, weight, weight)
+            f"""INSERT INTO ten_rm (user_id, exercise, weight) VALUES ({p},{p},{p})
+               ON CONFLICT (user_id, exercise) DO UPDATE SET weight={p}, updated_at=NOW()""",
+            (user_id, exercise, weight, weight)
         )
     else:
         c.execute(
-            f"""INSERT INTO ten_rm (exercise, weight) VALUES ({p},{p})
-               ON CONFLICT(exercise) DO UPDATE SET weight={p}, updated_at=CURRENT_TIMESTAMP""",
-            (exercise, weight, weight)
+            f"""INSERT INTO ten_rm (user_id, exercise, weight) VALUES ({p},{p},{p})
+               ON CONFLICT(user_id, exercise) DO UPDATE SET weight={p}, updated_at=CURRENT_TIMESTAMP""",
+            (user_id, exercise, weight, weight)
         )
     conn.commit()
     conn.close()
 
 
-def get_ten_rm(exercise: str) -> float | None:
+def get_ten_rm(exercise: str, user_id=None) -> float | None:
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
-    c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p}", (exercise,))
+    c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
     row = c.fetchone()
     conn.close()
     return row[0] if row else None
@@ -527,10 +552,14 @@ def get_last_feedback_per_muscle(meso_id: int) -> dict:
     return seen
 
 
-def get_all_ten_rms() -> dict[str, float]:
+def get_all_ten_rms(user_id=None) -> dict[str, float]:
+    p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT exercise, weight FROM ten_rm")
+    if user_id:
+        c.execute(f"SELECT exercise, weight FROM ten_rm WHERE user_id={p}", (user_id,))
+    else:
+        c.execute("SELECT exercise, weight FROM ten_rm")
     rows = c.fetchall()
     conn.close()
     return {r[0]: r[1] for r in rows}
