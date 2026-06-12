@@ -15,13 +15,61 @@ from data.exercises import EXERCISES
 
 st.set_page_config(page_title="Training", page_icon="🏋️", layout="wide")
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-.set-row { display:flex; gap:8px; align-items:center; padding:4px 0; border-bottom:1px solid #333; }
-.week-badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
-.rir-banner { padding:10px 16px; border-radius:8px; font-size:1rem; font-weight:600; margin-bottom:8px; }
+/* Base */
 div[data-testid="stNumberInput"] input { text-align:center; }
+
+/* Week bar pills */
+.week-pill {
+    text-align:center; padding:6px 4px; border-radius:6px;
+    font-size:0.75rem; border:1px solid #2d2d2d; color:#aaa;
+}
+.week-pill.active {
+    border-color:#555; background:#1e1e1e; color:#fff; font-weight:700;
+}
+.week-pill .rir-dot { display:block; font-size:0.7rem; margin-top:2px; }
+
+/* RIR banner */
+.rir-banner {
+    padding:10px 16px; border-radius:6px; margin:8px 0;
+    border-left:3px solid; font-size:0.9rem;
+    background:#141414;
+}
+
+/* Muscle header */
+.mg-header {
+    display:flex; align-items:baseline; gap:10px;
+    padding:10px 0 4px; border-bottom:1px solid #2a2a2a;
+    margin-top:12px;
+}
+.mg-title { font-size:1.05rem; font-weight:700; color:#f0f0f0; }
+.mg-meta  { font-size:0.8rem; color:#666; }
+.mg-badge {
+    font-size:0.75rem; padding:1px 8px; border-radius:10px;
+    background:#2a2a2a; color:#aaa; margin-left:4px;
+}
+
+/* Weight suggestion box */
+.weight-box {
+    padding:8px 12px; border-radius:4px; margin:6px 0 4px;
+    background:#161616; border:1px solid #2d2d2d;
+    font-size:0.85rem; color:#aaa;
+}
+.weight-box b { color:#f0f0f0; font-size:1.05rem; }
+
+/* Set grid header */
+.set-header {
+    display:grid; grid-template-columns:28px 1fr 1fr 1fr;
+    gap:4px; padding:4px 0 2px;
+    font-size:0.72rem; font-weight:600; color:#555;
+    text-transform:uppercase; letter-spacing:.04em;
+}
+
+/* Set count indicator */
+.sets-ok    { color:#4caf50; font-size:0.85rem; }
+.sets-low   { color:#888;    font-size:0.85rem; }
+.sets-over  { color:#888;    font-size:0.85rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -41,11 +89,11 @@ def week_rir(week: int, total_weeks: int) -> int:
     return 1
 
 RIR_CONFIG = {
-    4: {"label": "Deload",  "pct": 0.875, "color": "#1a73e8", "bg": "#0d2a4a"},
-    3: {"label": "3 RIR",   "pct": 0.875, "color": "#34a853", "bg": "#0d2a17"},
-    2: {"label": "2 RIR",   "pct": 0.925, "color": "#fbbc04", "bg": "#2a2000"},
-    1: {"label": "1 RIR",   "pct": 0.975, "color": "#ea4335", "bg": "#2a0d0a"},
-    0: {"label": "0 RIR",   "pct": 1.0,   "color": "#ea4335", "bg": "#2a0d0a"},
+    4: {"label": "Deload", "pct": 0.875, "color": "#6b9fd4", "bg": "#141414"},
+    3: {"label": "3 RIR",  "pct": 0.875, "color": "#6b9fd4", "bg": "#141414"},
+    2: {"label": "2 RIR",  "pct": 0.925, "color": "#e0a020", "bg": "#141414"},
+    1: {"label": "1 RIR",  "pct": 0.975, "color": "#c0392b", "bg": "#141414"},
+    0: {"label": "0 RIR",  "pct": 1.0,   "color": "#c0392b", "bg": "#141414"},
 }
 
 def suggested_weight(ten_rm: float, rir: int) -> float:
@@ -153,33 +201,33 @@ if not is_deload:
         r = week_rir(w, meso["weeks"])
         rc = RIR_CONFIG[r]
         is_now = w == current_week
+        active_cls = "active" if is_now else ""
         cols_w[w-1].markdown(
-            f"<div style='text-align:center;padding:5px 2px;border-radius:6px;"
-            f"background:{'#1f3a5f' if is_now else 'transparent'};"
-            f"border:{'2px solid ' + rc['color'] if is_now else '1px solid #333'};"
-            f"font-size:0.75rem'>"
-            f"<b>W{w}</b><br><span style='color:{rc['color']}'>{rc['label']}</span></div>",
+            f"<div class='week-pill {active_cls}'>"
+            f"W{w}"
+            f"<span class='rir-dot' style='color:{rc[\"color\"] if is_now else \"#444\"}'>{rc['label']}</span>"
+            f"</div>",
             unsafe_allow_html=True
         )
     cols_w[meso["weeks"]].markdown(
-        "<div style='text-align:center;padding:5px 2px;border-radius:6px;"
-        "border:1px solid #333;font-size:0.75rem'>"
-        "<b>DL</b><br><span style='color:#1a73e8'>Deload</span></div>",
+        "<div class='week-pill'>"
+        "DL<span class='rir-dot' style='color:#444'>Deload</span>"
+        "</div>",
         unsafe_allow_html=True
     )
 else:
-    st.info("🔵 **Deload** — 2 Sets, ~87% vom 10RM, ~halbe Wdh.")
+    st.info("Deload-Woche — 2 Sets, ~87% vom 10RM, halbe Wiederholungszahl.")
     if st.button("Deload abschließen"):
         update_mesocycle_status(meso["id"], "completed")
         st.rerun()
 
 # RIR banner
 st.markdown(
-    f"<div style='background:{rcfg['bg']};border-left:4px solid {rcfg['color']};"
-    f"padding:8px 14px;border-radius:4px;margin:8px 0;font-size:0.9rem'>"
-    f"<b style='color:{rcfg['color']}'>{rcfg['label']}</b> — "
-    f"Stoppe jeden Satz wenn du noch <b>{rir} Wdh.</b> in Reserve hast. "
-    f"Gewichtszone: <b>{int(rcfg['pct']*100)}% vom 10RM</b></div>",
+    f"<div class='rir-banner' style='border-color:{rcfg[\"color\"]}'>"
+    f"<span style='color:{rcfg[\"color\"]};font-weight:700'>{rcfg['label']}</span>"
+    f" &nbsp;—&nbsp; Stoppe jeden Satz mit noch <strong>{rir} Wdh.</strong> in Reserve"
+    f" &nbsp;·&nbsp; Gewicht: <strong>{int(rcfg['pct']*100)}% vom 10RM</strong>"
+    f"</div>",
     unsafe_allow_html=True
 )
 
@@ -269,16 +317,18 @@ with tab_new:
         fb = last_feedback.get(mg)
         target_sets, fb_reason = adjust_sets(planned_sets, fb, mrv_per_session)
 
+        feedback_badge = (
+            f"<span class='mg-badge' title='{fb_reason}'>"
+            f"{'↑' if target_sets > planned_sets else '↓'} Feedback"
+            f"</span>"
+            if target_sets != planned_sets and fb_reason else ""
+        )
         st.markdown(
-            f"<div style='display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:4px'>"
-            f"<span style='font-size:1.3rem'>{vol.get('icon','💪')}</span>"
-            f"<span style='font-size:1.1rem;font-weight:700'>{mg}</span>"
-            f"<span style='color:#888;font-size:0.85rem'>"
-            f"Heute: <b style='color:white'>{target_sets}</b> Sets"
-            + (f" <span style='color:#fbbc04' title='{fb_reason}'>({'+' if target_sets > planned_sets else ''}{target_sets - planned_sets:+d} Feedback)</span>"
-               if target_sets != planned_sets and fb_reason else "")
-            + f" &nbsp;·&nbsp; Woche: {weekly_sets} ({freq}×) &nbsp;·&nbsp; "
-            f"<span style='color:{rcfg_active['color']}'>{rcfg_active['label']}</span></span>"
+            f"<div class='mg-header'>"
+            f"<span style='font-size:1.2rem'>{vol.get('icon','💪')}</span>"
+            f"<span class='mg-title'>{mg}</span>"
+            f"<span class='mg-meta'>{target_sets} Sets heute &nbsp;·&nbsp; {weekly_sets}/Wo ({freq}×)</span>"
+            f"{feedback_badge}"
             f"</div>",
             unsafe_allow_html=True
         )
@@ -324,10 +374,9 @@ with tab_new:
                 if stored_10rm and stored_10rm > 0:
                     w_sug = suggested_weight(stored_10rm, active_rir)
                     st.markdown(
-                        f"<div style='padding:8px;border-radius:4px;background:{rcfg_active['bg']};"
-                        f"border:1px solid {rcfg_active['color']};margin-top:4px;font-size:0.85rem'>"
-                        f"Vorschlag: <b style='font-size:1.1rem'>{w_sug:.1f} kg</b> "
-                        f"<span style='color:#888'>({int(rcfg_active['pct']*100)}% · {rcfg_active['label']} · 10RM: {stored_10rm:.1f} kg)</span>"
+                        f"<div class='weight-box'>"
+                        f"Vorschlag: <b>{w_sug:.1f} kg</b>"
+                        f" &nbsp;<span style='color:#555'>{int(rcfg_active['pct']*100)}% · 10RM {stored_10rm:.1f} kg · {rcfg_active['label']}</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
@@ -336,12 +385,10 @@ with tab_new:
                     st.caption("⚙️ 10RM noch nicht hinterlegt → [Fortschritt → 10RM](3_Fortschritt)")
                     w_default = 0.0
 
-                # Set table
                 st.markdown(
-                    f"<div style='display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:4px;"
-                    f"padding:4px 0;color:#888;font-size:0.75rem;font-weight:600'>"
-                    f"<div>#</div><div>Gewicht kg</div><div>Wdh.</div>"
-                    f"<div>RIR <span style='color:{rcfg_active['color']}'>(Ziel: {active_rir})</span></div>"
+                    f"<div class='set-header'>"
+                    f"<div>#</div><div>kg</div><div>Wdh.</div>"
+                    f"<div>RIR <span style='color:{rcfg_active['color']}'>({active_rir} Ziel)</span></div>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
@@ -349,7 +396,7 @@ with tab_new:
                 global_set = sets_logged + 1
                 for s in range(1, int(num_sets) + 1):
                     sc = st.columns([1, 3, 3, 3])
-                    sc[0].markdown(f"<div style='padding-top:8px;color:#888'>{global_set}</div>",
+                    sc[0].markdown(f"<div style='padding-top:8px;color:#555;font-size:0.85rem'>{global_set}</div>",
                                    unsafe_allow_html=True)
                     weight = sc[1].number_input(
                         "", min_value=0.0, step=2.5, value=w_default,
@@ -384,16 +431,16 @@ with tab_new:
         indicator_col, btn_col = st.columns([3, 2])
         diff = sets_logged - target_sets
         if diff == 0:
-            indicator_col.markdown(f"<span style='color:#34a853'>✓ {sets_logged} Sets</span>",
-                                   unsafe_allow_html=True)
+            indicator_col.markdown(
+                f"<span class='sets-ok'>✓ {sets_logged} Sets</span>", unsafe_allow_html=True)
         elif diff < 0:
             indicator_col.markdown(
-                f"<span style='color:#fbbc04'>{sets_logged}/{target_sets} Sets "
-                f"({diff} unter Ziel)</span>", unsafe_allow_html=True)
+                f"<span class='sets-low'>{sets_logged} / {target_sets} Sets ({diff})</span>",
+                unsafe_allow_html=True)
         else:
             indicator_col.markdown(
-                f"<span style='color:#ea4335'>{sets_logged}/{target_sets} Sets "
-                f"(+{diff} über Ziel)</span>", unsafe_allow_html=True)
+                f"<span class='sets-over'>{sets_logged} / {target_sets} Sets (+{diff})</span>",
+                unsafe_allow_html=True)
 
         if btn_col.button(f"➕ Übung", key=f"add_ex_{mg}", use_container_width=True):
             st.session_state[ex_count_key] += 1
