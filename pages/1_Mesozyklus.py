@@ -46,10 +46,12 @@ st.subheader("2. Split-Template wählen")
 template_cols = st.columns(4)
 for i, name in enumerate([n for n in TEMPLATE_NAMES if n != "Custom"]):
     tmpl = TEMPLATES[name]
+    all_muscles = list(dict.fromkeys(mg for mgs in tmpl["days"].values() for mg in mgs))
+    icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in all_muscles)
+    num_days = len(tmpl["days"])
     with template_cols[i % 4]:
-        num_days = len(tmpl["days"])
         if st.button(
-            f"**{name}**\n{tmpl['description']}\n_{num_days} Trainingstage_",
+            f"**{name}**\n{tmpl['description']}\n_{num_days} Tage_ · {icons}",
             key=f"tmpl_{name}",
             use_container_width=True,
         ):
@@ -109,6 +111,13 @@ else:
     tmpl = TEMPLATES[selected_template_name]
     split_days = dict(tmpl["days"])
     split_order = list(tmpl["suggested_order"])
+
+    # Clear cached edit-keys when template changes to avoid stale session_state
+    if st.session_state.get("_last_template") != selected_template_name:
+        for k in list(st.session_state.keys()):
+            if k.startswith("edit_"):
+                del st.session_state[k]
+        st.session_state["_last_template"] = selected_template_name
 
     # Allow reordering/editing the template days
     with st.expander("🔧 Template anpassen (optional)", expanded=False):
