@@ -8,7 +8,7 @@ from database import (get_mesocycles, update_mesocycle_status, delete_mesocycle,
                        clone_mesocycle, get_muscle_configs)
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
-from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_cookie, init_auth
+from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_token, init_auth
 
 st.set_page_config(
     page_title="RP Hypertrophy",
@@ -44,7 +44,7 @@ if not init_auth():
             if ok:
                 st.session_state["auth_user"] = user
                 st.session_state["auth_token"] = token
-                set_auth_cookie(token)
+                set_auth_token(token)
                 st.rerun()
             else:
                 st.error(msg)

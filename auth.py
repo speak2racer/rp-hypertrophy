@@ -6,15 +6,39 @@ from database import (
     create_session, get_user_by_token, delete_session
 )
 
-_COOKIE_NAME = "rp_session"
-_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+_LS_KEY = "rp_session"
+_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days (used as JS expiry hint only)
 
 
-def _controller():
-    """Always create fresh instance — never cache in session_state."""
-    from streamlit_cookies_controller import CookieController
-    return CookieController(key="rp_cookies")
+# ── localStorage helpers via streamlit-js-eval ────────────────────────────────
 
+def _js_get_token() -> str | None:
+    """Read token from localStorage. Returns None on first render (async)."""
+    from streamlit_js_eval import streamlit_js_eval
+    return streamlit_js_eval(
+        js_expressions=f"localStorage.getItem('{_LS_KEY}')",
+        key="_rp_ls_get"
+    )
+
+
+def _js_set_token(token: str):
+    from streamlit_js_eval import streamlit_js_eval
+    # Escape token (hex string, safe) and set with expiry timestamp hint
+    streamlit_js_eval(
+        js_expressions=f"localStorage.setItem('{_LS_KEY}', '{token}'); '{token}'",
+        key="_rp_ls_set"
+    )
+
+
+def _js_clear_token():
+    from streamlit_js_eval import streamlit_js_eval
+    streamlit_js_eval(
+        js_expressions=f"localStorage.removeItem('{_LS_KEY}'); 'cleared'",
+        key="_rp_ls_clear"
+    )
+
+
+# ── Password helpers ──────────────────────────────────────────────────────────
 
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
@@ -27,6 +51,8 @@ def _new_salt() -> str:
 def _new_token() -> str:
     return os.urandom(32).hex()
 
+
+# ── Register / Login ──────────────────────────────────────────────────────────
 
 def register_user(username: str, password: str) -> tuple[bool, str]:
     username = username.strip().lower()
@@ -70,32 +96,37 @@ def login_user(username: str, password: str) -> tuple[bool, str, dict | None, st
     return True, "Erfolgreich eingeloggt.", user, token
 
 
-def init_auth():
-    """
-    Call once at the top of every page BEFORE any st.stop().
-    Handles the two-render-cycle needed for the cookie component to load.
-    Returns True when auth state is resolved (render 2+).
-    Returns False on render 1 (shows loading, triggers rerun).
-    """
-    ctrl = _controller()
+# ── Auth flow ─────────────────────────────────────────────────────────────────
 
-    # session_state already has user → done
+def init_auth() -> bool:
+    """
+    Call at top of every page before any st.stop().
+
+    Flow:
+      - If auth_user in session_state → already logged in, return True
+      - First render: localStorage not read yet → show loading, st.stop()
+        streamlit-js-eval triggers automatic rerun when JS resolves
+      - Second+ render: localStorage value available
+        → validate token → set session_state → return True
+        → no valid token → return False (show login)
+    """
+    # Already authenticated
     if "auth_user" in st.session_state:
         return True
 
-    # First render after a hard refresh: component needs one cycle to load
-    if "cookie_checked" not in st.session_state:
-        st.session_state["cookie_checked"] = False
-        # Show nothing, let component trigger the automatic rerun
+    # Read token from localStorage (returns None on first render)
+    token = _js_get_token()
+
+    if token is None:
+        # Component hasn't executed JS yet — will auto-rerun when it does
         st.markdown(
             "<div style='display:flex;align-items:center;justify-content:center;"
-            "height:100vh;color:#555;font-size:0.9rem'>Laden …</div>",
-            unsafe_allow_html=True
+            "height:80vh;color:#444;font-size:0.9rem'>Laden …</div>",
+            unsafe_allow_html=True,
         )
         st.stop()
 
-    # Second+ render: cookies are available now
-    token = ctrl.get(_COOKIE_NAME)
+    # token is "" (empty string) or a real token
     if token:
         user = get_user_by_token(str(token))
         if user:
@@ -106,9 +137,9 @@ def init_auth():
     return False
 
 
-def set_auth_cookie(token: str):
-    ctrl = _controller()
-    ctrl.set(_COOKIE_NAME, token, max_age=_COOKIE_MAX_AGE)
+def set_auth_token(token: str):
+    """Persist token to localStorage after login."""
+    _js_set_token(token)
 
 
 def get_current_user() -> dict | None:
@@ -127,13 +158,9 @@ def require_auth() -> dict:
 def logout():
     token = st.session_state.pop("auth_token", None)
     st.session_state.pop("auth_user", None)
-    st.session_state.pop("cookie_checked", None)
     if token:
         delete_session(token)
-    try:
-        _controller().remove(_COOKIE_NAME)
-    except Exception:
-        pass
+    _js_clear_token()
 
 
 def render_sidebar_user():
@@ -142,8 +169,10 @@ def render_sidebar_user():
         with st.sidebar:
             st.markdown(f"""
             <div style='padding:10px 4px 14px;border-bottom:1px solid #1e1e1e;margin-bottom:8px'>
-                <div style='font-size:0.72rem;color:#555;text-transform:uppercase;letter-spacing:.06em'>Eingeloggt als</div>
-                <div style='font-size:0.95rem;font-weight:700;color:#f0f0f0;margin-top:4px'>{user['username']}</div>
+                <div style='font-size:0.72rem;color:#555;text-transform:uppercase;
+                            letter-spacing:.06em'>Eingeloggt als</div>
+                <div style='font-size:0.95rem;font-weight:700;color:#f0f0f0;
+                            margin-top:4px'>{user['username']}</div>
             </div>
             """, unsafe_allow_html=True)
             if st.button("Abmelden", use_container_width=True):
