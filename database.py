@@ -119,6 +119,12 @@ _SCHEMA_SQLITE = """
         notes TEXT,
         FOREIGN KEY (workout_id) REFERENCES workouts(id)
     );
+    CREATE TABLE IF NOT EXISTS ten_rm (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exercise TEXT NOT NULL UNIQUE,
+        weight REAL NOT NULL,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
 """
 
 _SCHEMA_POSTGRES = """
@@ -171,6 +177,12 @@ _SCHEMA_POSTGRES = """
         soreness INTEGER,
         performance INTEGER,
         notes TEXT
+    );
+    CREATE TABLE IF NOT EXISTS ten_rm (
+        id SERIAL PRIMARY KEY,
+        exercise TEXT NOT NULL UNIQUE,
+        weight REAL NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
     );
 """
 
@@ -458,6 +470,47 @@ def get_all_feedback_for_meso(meso_id):
     rows = _fetchall_as_dicts(c)
     conn.close()
     return rows
+
+
+# ── 10RM ─────────────────────────────────────────────────────────────────────
+
+def save_ten_rm(exercise: str, weight: float):
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    if _use_postgres():
+        c.execute(
+            f"""INSERT INTO ten_rm (exercise, weight) VALUES ({p},{p})
+               ON CONFLICT (exercise) DO UPDATE SET weight={p}, updated_at=NOW()""",
+            (exercise, weight, weight)
+        )
+    else:
+        c.execute(
+            f"""INSERT INTO ten_rm (exercise, weight) VALUES ({p},{p})
+               ON CONFLICT(exercise) DO UPDATE SET weight={p}, updated_at=CURRENT_TIMESTAMP""",
+            (exercise, weight, weight)
+        )
+    conn.commit()
+    conn.close()
+
+
+def get_ten_rm(exercise: str) -> float | None:
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p}", (exercise,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def get_all_ten_rms() -> dict[str, float]:
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT exercise, weight FROM ten_rm")
+    rows = c.fetchall()
+    conn.close()
+    return {r[0]: r[1] for r in rows}
 
 
 init_db()
