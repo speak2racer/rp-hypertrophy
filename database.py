@@ -349,6 +349,32 @@ def get_mesocycle(meso_id):
     return _decode_meso(row) if row else None
 
 
+def clone_mesocycle(source_meso_id: int, new_name: str, new_start_date,
+                    new_muscle_configs: dict, user_id=None) -> int:
+    """
+    Copies structure (template/split/exercises) from source meso, creates a new active meso.
+    new_muscle_configs: {muscle_group: {"start_sets": int, "exercises": list}}
+    Returns new meso_id.
+    """
+    source = get_mesocycle(source_meso_id)
+    if not source:
+        raise ValueError("Source mesocycle not found")
+    new_id = create_mesocycle(
+        name=new_name,
+        start_date=new_start_date,
+        weeks=source["weeks"],
+        deload_week=source.get("deload_week", 1),
+        muscle_groups=source["muscle_groups"],
+        split_template=source.get("split_template"),
+        split_days=source.get("split_days"),
+        split_order=source.get("split_order"),
+        user_id=user_id,
+    )
+    for mg, cfg in new_muscle_configs.items():
+        save_muscle_config(new_id, mg, cfg["start_sets"], cfg["exercises"])
+    return new_id
+
+
 def update_mesocycle_status(meso_id, status):
     p = _placeholder()
     conn = get_conn()

@@ -4,7 +4,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
 from datetime import date
-from database import get_mesocycles, update_mesocycle_status, delete_mesocycle
+from database import (get_mesocycles, update_mesocycle_status, delete_mesocycle,
+                       clone_mesocycle, get_muscle_configs)
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
 from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_cookie, init_auth
@@ -155,12 +156,58 @@ if completed:
     for m in completed:
         with st.expander(f"✅ {m['name']} — {m['start_date']}  ({m['weeks']} Wochen)"):
             st.caption(f"Muskelgruppen: {', '.join(m['muscle_groups'])}")
-            col1, col2, _ = st.columns([1, 1, 4])
+            col1, col2, col3, _ = st.columns([1, 1, 1, 3])
             if col1.button("Reaktivieren", key=f"act_{m['id']}"):
                 for a in active:
                     update_mesocycle_status(a["id"], "completed")
                 update_mesocycle_status(m["id"], "active")
                 st.rerun()
-            if col2.button("🗑️ Löschen", key=f"del_{m['id']}"):
+            if col2.button("📋 Kopieren", key=f"copy_{m['id']}"):
+                st.session_state[f"clone_{m['id']}"] = True
+            if col3.button("🗑️ Löschen", key=f"del_{m['id']}"):
                 delete_mesocycle(m["id"])
                 st.rerun()
+
+            if st.session_state.get(f"clone_{m['id']}"):
+                from calibration import get_calibrated_volumes
+                st.markdown("---")
+                new_name = st.text_input(
+                    "Name des neuen Mesozyklus",
+                    value=f"{m['name']} (Kopie)",
+                    key=f"clone_name_{m['id']}"
+                )
+                new_start = st.date_input("Startdatum", value=date.today(),
+                                          key=f"clone_start_{m['id']}")
+
+                # Preview calibrated volumes
+                old_configs = get_muscle_configs(m["id"])
+                st.markdown("**Volumen-Anpassung (kalibriert vs. alter Zyklus):**")
+                preview_cols = st.columns(3)
+                new_configs = {}
+                for i, mg in enumerate(m["muscle_groups"]):
+                    cal = get_calibrated_volumes(mg)
+                    old_cfg = old_configs.get(mg, {})
+                    old_sets = old_cfg.get("start_sets", "–")
+                    exercises = old_cfg.get("exercises", [])
+                    new_start_sets = cal["recommended_start"]
+                    new_configs[mg] = {"start_sets": new_start_sets, "exercises": exercises}
+                    icon = RP_VOLUMES.get(mg, {}).get("icon", "💪")
+                    with preview_cols[i % 3]:
+                        delta = new_start_sets - old_sets if isinstance(old_sets, int) else 0
+                        delta_str = f"{delta:+d} Sets" if delta != 0 else "gleich"
+                        st.metric(f"{icon} {mg}", f"{new_start_sets} Sets/Wo.",
+                                  delta=delta_str)
+
+                c_ok, c_cancel = st.columns([1, 1])
+                if c_ok.button("✅ Neuen Zyklus erstellen", type="primary",
+                               key=f"clone_ok_{m['id']}"):
+                    for a in active:
+                        update_mesocycle_status(a["id"], "completed")
+                    clone_mesocycle(m["id"], new_name, new_start, new_configs,
+                                    user_id=user["id"])
+                    del st.session_state[f"clone_{m['id']}"]
+                    st.success(f"✅ **{new_name}** erstellt!")
+                    st.rerun()
+                if c_cancel.button("Abbrechen", key=f"clone_cancel_{m['id']}"):
+                    del st.session_state[f"clone_{m['id']}"]
+                    st.rerun()
