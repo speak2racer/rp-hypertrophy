@@ -27,14 +27,14 @@ TEMPLATES = {
         "suggested_order": ["Push A", "Pull A", "Push B", "Pull B"],
     },
     "Push/Pull 6-Tage": {
-        "description": "Push / Pull — 6 Tage, Beine in Push & Pull integriert",
+        "description": "Push / Pull — 6 Tage, Quads bei Push, Hamstrings bei Pull",
         "days": {
             "Push A": ["Chest", "Schulter Seite", "Triceps", "Quads"],
             "Pull A": ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps", "Hamstrings"],
             "Push B": ["Chest", "Schulter Seite", "Triceps", "Quads", "Calves"],
-            "Pull B": ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps", "Glutes"],
-            "Push C": ["Chest", "Schulter Seite", "Triceps", "Quads"],
-            "Pull C": ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps", "Hamstrings", "Abs"],
+            "Pull B": ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps", "Hamstrings", "Glutes"],
+            "Push C": ["Chest", "Schulter Seite", "Triceps", "Quads", "Abs"],
+            "Pull C": ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps", "Hamstrings", "Calves"],
         },
         "suggested_order": ["Push A", "Pull A", "Push B", "Pull B", "Push C", "Pull C"],
     },
