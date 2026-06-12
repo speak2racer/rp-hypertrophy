@@ -347,7 +347,7 @@ with tab6:
                     min_value=0.0,
                     step=2.5,
                     value=float(current),
-                    key=f"rm_{ex['name']}",
+                    key=f"rm_{mg}_{ex['name']}",
                     help="0 = noch nicht eingetragen"
                 )
                 if val != current:
