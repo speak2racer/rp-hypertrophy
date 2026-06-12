@@ -1,0 +1,48 @@
+# RP Volume Landmarks per muscle group (sets per week)
+# Source: Renaissance Periodization Hypertrophy methodology
+# MEV = Minimum Effective Volume, MAV = Maximum Adaptive Volume, MRV = Maximum Recoverable Volume
+
+RP_VOLUMES = {
+    "Chest": {
+        "MEV": 8, "MAV_low": 12, "MAV_high": 20, "MRV": 22,
+        "freq_per_week": 2, "icon": "💪"
+    },
+    "Back": {
+        "MEV": 10, "MAV_low": 14, "MAV_high": 22, "MRV": 25,
+        "freq_per_week": 2, "icon": "🔙"
+    },
+    "Shoulders": {
+        "MEV": 8, "MAV_low": 16, "MAV_high": 22, "MRV": 26,
+        "freq_per_week": 2, "icon": "🏋️"
+    },
+    "Biceps": {
+        "MEV": 8, "MAV_low": 14, "MAV_high": 20, "MRV": 26,
+        "freq_per_week": 2, "icon": "💪"
+    },
+    "Triceps": {
+        "MEV": 6, "MAV_low": 10, "MAV_high": 14, "MRV": 18,
+        "freq_per_week": 2, "icon": "💪"
+    },
+    "Quads": {
+        "MEV": 8, "MAV_low": 12, "MAV_high": 18, "MRV": 20,
+        "freq_per_week": 2, "icon": "🦵"
+    },
+    "Hamstrings": {
+        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 20,
+        "freq_per_week": 2, "icon": "🦵"
+    },
+    "Glutes": {
+        "MEV": 0, "MAV_low": 4, "MAV_high": 12, "MRV": 16,
+        "freq_per_week": 2, "icon": "🍑"
+    },
+    "Calves": {
+        "MEV": 8, "MAV_low": 12, "MAV_high": 16, "MRV": 20,
+        "freq_per_week": 3, "icon": "🦶"
+    },
+    "Abs": {
+        "MEV": 0, "MAV_low": 16, "MAV_high": 20, "MRV": 25,
+        "freq_per_week": 3, "icon": "🫁"
+    },
+}
+
+MUSCLE_GROUPS = list(RP_VOLUMES.keys())
