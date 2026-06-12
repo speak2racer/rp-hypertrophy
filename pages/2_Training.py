@@ -37,6 +37,7 @@ def week_rir(week: int, total_weeks: int) -> int:
         return 2
     return 1
 
+# Hypertrophie: 8–12 Wdh., moderate Intensität
 RIR_CONFIG = {
     4: {"label": "Deload", "pct": 0.65,  "color": "#6b9fd4", "bg": "#141414"},
     3: {"label": "3 RIR",  "pct": 0.875, "color": "#6b9fd4", "bg": "#141414"},
@@ -45,9 +46,21 @@ RIR_CONFIG = {
     0: {"label": "0 RIR",  "pct": 1.0,   "color": "#c0392b", "bg": "#141414"},
 }
 
-def suggested_weight(ten_rm: float, rir: int) -> float:
-    pct = RIR_CONFIG.get(rir, RIR_CONFIG[2])["pct"]
-    return round(ten_rm * pct / 2.5) * 2.5
+# Kraft: 3–6 Wdh., hohe Intensität — höhere % vom 1RM
+RIR_CONFIG_STRENGTH = {
+    4: {"label": "Deload",  "pct": 0.65,  "reps": "5–8",  "color": "#6b9fd4", "bg": "#141414"},
+    3: {"label": "3 RIR",   "pct": 0.825, "reps": "4–6",  "color": "#6b9fd4", "bg": "#141414"},
+    2: {"label": "2 RIR",   "pct": 0.875, "reps": "3–5",  "color": "#e0a020", "bg": "#141414"},
+    1: {"label": "1 RIR",   "pct": 0.925, "reps": "2–4",  "color": "#c0392b", "bg": "#141414"},
+    0: {"label": "0 RIR",   "pct": 0.975, "reps": "1–3",  "color": "#c0392b", "bg": "#141414"},
+}
+
+def suggested_weight(ten_rm: float, rir: int, meso_type: str = "hypertrophy") -> float:
+    cfg = RIR_CONFIG_STRENGTH if meso_type == "strength" else RIR_CONFIG
+    pct = cfg.get(rir, cfg[2])["pct"]
+    # Convert 10RM to 1RM first, then apply percentage
+    one_rm = ten_rm / 0.75
+    return round(one_rm * pct / 2.5) * 2.5
 
 def adjust_sets(planned: int, feedback: dict | None, mrv: int) -> tuple[int, str]:
     """
@@ -118,6 +131,9 @@ if not active:
 meso = active[0]
 current_week = meso.get("current_week") or 1
 is_deload = meso["status"] == "deload"
+meso_type = meso.get("meso_type") or "hypertrophy"
+is_strength = meso_type == "strength"
+rir_cfg = RIR_CONFIG_STRENGTH if is_strength else RIR_CONFIG
 muscle_configs = get_muscle_configs(meso["id"])
 split_days: dict = meso.get("split_days") or {}
 split_order: list = meso.get("split_order") or list(split_days.keys())
@@ -125,7 +141,7 @@ split_order: list = meso.get("split_order") or list(split_days.keys())
 # ── Header ────────────────────────────────────────────────────────────────────
 display_week = current_week if not is_deload else meso["weeks"] + 1
 rir = week_rir(current_week, meso["weeks"]) if not is_deload else 4
-rcfg = RIR_CONFIG[rir]
+rcfg = rir_cfg[rir]
 
 col_title, col_meta = st.columns([3, 2])
 col_title.title("🏋️ Training")
@@ -134,7 +150,7 @@ rcfg_label = rcfg["label"]
 with col_meta:
     st.markdown(f"""
     <div style='text-align:right; padding-top:12px'>
-        <span style='font-size:0.85rem; color:#888'>{meso['name']} · {meso.get('split_template','')}</span><br>
+        <span style='font-size:0.85rem; color:#888'>{meso['name']} · {meso.get('split_template','')} · {'🏋️ Kraft' if is_strength else '💪 Hypertrophie'}</span><br>
         <span style='font-size:1.1rem; font-weight:700'>
             Woche {display_week}/{meso['weeks']}
             &nbsp;
@@ -148,7 +164,7 @@ if not is_deload:
     cols_w = st.columns(meso["weeks"] + 1)
     for w in range(1, meso["weeks"] + 1):
         r = week_rir(w, meso["weeks"])
-        rc = RIR_CONFIG[r]
+        rc = rir_cfg[r]
         is_now = w == current_week
         active_cls = "active" if is_now else ""
         dot_color = rc["color"] if is_now else "#444"
@@ -270,7 +286,7 @@ with tab_new:
 
     # ── Exercise blocks ───────────────────────────────────────────────────────
     session_sets = {}
-    rcfg_active = RIR_CONFIG[active_rir]
+    rcfg_active = rir_cfg[active_rir]
     rcfg_active_color = rcfg_active["color"]
     rcfg_active_label = rcfg_active["label"]
     rcfg_active_pct = int(rcfg_active["pct"] * 100)
@@ -361,7 +377,7 @@ with tab_new:
                 # Weight suggestion from stored 10RM
                 stored_10rm = get_ten_rm(chosen_ex, user_id=get_effective_user_id())
                 if stored_10rm and stored_10rm > 0:
-                    w_sug = suggested_weight(stored_10rm, active_rir)
+                    w_sug = suggested_weight(stored_10rm, active_rir, meso_type)
                     st.markdown(
                         f"<div class='weight-box'>"
                         f"Vorschlag: <b>{w_sug:.1f} kg</b>"
@@ -374,9 +390,11 @@ with tab_new:
                     st.caption("⚙️ 10RM noch nicht hinterlegt → [Fortschritt → 10RM](3_Fortschritt)")
                     w_default = 0.0
 
+                reps_hint = rir_cfg.get(active_rir, {}).get("reps", "8–12") if is_strength else "8–12"
                 st.markdown(
                     f"<div class='set-header'>"
-                    f"<div>#</div><div>kg</div><div>Wdh.</div>"
+                    f"<div>#</div><div>kg</div>"
+                    f"<div>Wdh. <span style='color:#666;font-size:0.75rem'>({reps_hint})</span></div>"
                     f"<div>RIR <span style='color:{rcfg_active_color}'>({active_rir} Ziel)</span></div>"
                     f"</div>",
                     unsafe_allow_html=True
@@ -539,7 +557,7 @@ with tab_history:
     else:
         for w in workouts:
             w_rir = week_rir(w["week_number"], meso["weeks"])
-            rc = RIR_CONFIG.get(w_rir, RIR_CONFIG[2])
+            rc = rir_cfg.get(w_rir, rir_cfg[2])
             with st.expander(
                 f"📅 {w['date']} · Woche {w['week_number']} · "
                 f"{rc['label']}"

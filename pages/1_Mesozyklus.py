@@ -36,6 +36,18 @@ with col3:
 
 st.caption(f"Deload-Woche: Woche {weeks + 1} | Gesamtdauer: {weeks + 1} Wochen")
 
+meso_type = st.radio(
+    "Mesozyklus-Typ",
+    options=["hypertrophy", "strength"],
+    format_func=lambda x: "💪 Hypertrophie  —  hohes Volumen, 8–12 Wdh., MEV→MRV" if x == "hypertrophy"
+                          else "🏋️ Kraft  —  schwere Gewichte, 3–6 Wdh., Volumen bei MEV",
+    horizontal=True,
+    key="meso_type_select",
+)
+if meso_type == "strength":
+    st.info("**Kraft-Meso:** Weniger Sätze (nahe MEV), höhere Intensität (80–95% 1RM), 3–6 Wiederholungen. "
+            "Verbessert das 1RM → automatisch höhere Gewichtsvorschläge im nächsten Hypertrophie-Meso.")
+
 st.divider()
 
 # ── Step 2: Split Template ────────────────────────────────────────────────────
@@ -172,25 +184,31 @@ for i, mg in enumerate(selected_muscles):
     sfr_map = {e["name"]: e["sfr"] for e in EXERCISES.get(mg, [])}
     trains_on = [d for d, mgs in split_days.items() if mg in mgs]
     freq = len(trains_on) if trains_on else 1
-    start_sets = cal["recommended_start"]
-    sets_per_session = max(1, round(start_sets / freq))
 
-    # Recommend exercises: ≥1 per training day (rotation) AND enough for session volume
-    if sets_per_session <= 6:
-        per_session_rec = 1
-    elif sets_per_session <= 12:
-        per_session_rec = 2
+    # Kraft-Meso: Volumen bleibt bei MEV, kein Anstieg über Wochen
+    if meso_type == "strength":
+        start_sets = max(cal["MEV"], 3)
+        sets_per_session = max(1, round(start_sets / freq))
+        rec_ex = 1  # Kraft: 1 Hauptübung pro Muskel
+        intensity_hint = "3–6 Wdh. · 80–95% 1RM · Volumen konstant bei MEV"
     else:
-        per_session_rec = 3
-    rec_ex = max(freq, per_session_rec)
+        start_sets = cal["recommended_start"]
+        sets_per_session = max(1, round(start_sets / freq))
+        if sets_per_session <= 6:
+            per_session_rec = 1
+        elif sets_per_session <= 12:
+            per_session_rec = 2
+        else:
+            per_session_rec = 3
+        rec_ex = max(freq, per_session_rec)
+        intensity_hint = f"{sets_per_session} Sets/Session · 8–12 Wdh."
 
     with cols[i % 2]:
         icon = vol_base.get("icon", "💪")
-        days_str = ", ".join(trains_on) if trains_on else "–"
         st.markdown(f"**{icon} {mg}**")
         st.caption(
             f"Empfehlung: **{rec_ex} Übung{'en' if rec_ex != 1 else ''}** "
-            f"· {freq}× pro Woche · {sets_per_session} Sets/Session"
+            f"· {freq}× pro Woche · {intensity_hint}"
         )
         chosen = st.multiselect(
             f"ex_{mg}",
@@ -206,7 +224,11 @@ for i, mg in enumerate(selected_muscles):
         if sfr_badges:
             st.caption(sfr_badges)
 
-    progression = [min(start_sets + (w - 1) * 2, cal["MRV"]) for w in range(1, weeks + 1)]
+    # Progression: Hypertrophie steigt wöchentlich, Kraft bleibt konstant bei MEV
+    if meso_type == "strength":
+        progression = [start_sets] * weeks
+    else:
+        progression = [min(start_sets + (w - 1) * 2, cal["MRV"]) for w in range(1, weeks + 1)]
     muscle_configs[mg] = {
         "start_sets": start_sets,
         "exercises": chosen,
@@ -241,6 +263,7 @@ if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name)
         split_days=split_days,
         split_order=split_order,
         user_id=get_effective_user_id(),
+        meso_type=meso_type,
     )
 
     for mg, cfg in muscle_configs.items():

@@ -85,6 +85,7 @@ _SCHEMA_SQLITE = """
         split_days TEXT,
         split_order TEXT,
         status TEXT DEFAULT 'active',
+        meso_type TEXT DEFAULT 'hypertrophy',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS meso_muscle_config (
@@ -164,6 +165,7 @@ _SCHEMA_POSTGRES = """
         split_days TEXT,
         split_order TEXT,
         status TEXT DEFAULT 'active',
+        meso_type TEXT DEFAULT 'hypertrophy',
         created_at TIMESTAMP DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS meso_muscle_config (
@@ -229,6 +231,7 @@ def _migrate(conn):
             "ALTER TABLE workouts ADD COLUMN IF NOT EXISTS day_name TEXT",
             "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS current_week INTEGER DEFAULT 1",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS meso_type TEXT DEFAULT 'hypertrophy'",
         ]
         for sql in migrations:
             try:
@@ -258,6 +261,7 @@ def _migrate(conn):
             "ALTER TABLE workouts ADD COLUMN day_name TEXT",
             "ALTER TABLE mesocycles ADD COLUMN current_week INTEGER DEFAULT 1",
             "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
+            "ALTER TABLE mesocycles ADD COLUMN meso_type TEXT DEFAULT 'hypertrophy'",
             """CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -297,7 +301,7 @@ def _decode_meso(d: dict) -> dict:
 
 def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
                      split_template=None, split_days=None, split_order=None,
-                     user_id=None):
+                     user_id=None, meso_type="hypertrophy"):
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
@@ -305,22 +309,22 @@ def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
         c.execute(
             f"""INSERT INTO mesocycles
                (user_id, name, start_date, weeks, deload_week, muscle_groups,
-                split_template, split_days, split_order)
-               VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p}) RETURNING id""",
+                split_template, split_days, split_order, meso_type)
+               VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p},{p}) RETURNING id""",
             (user_id, name, str(start_date), weeks, deload_week, json.dumps(muscle_groups),
              split_template, json.dumps(split_days) if split_days else None,
-             json.dumps(split_order) if split_order else None)
+             json.dumps(split_order) if split_order else None, meso_type)
         )
         meso_id = c.fetchone()[0]
     else:
         c.execute(
             f"""INSERT INTO mesocycles
                (user_id, name, start_date, weeks, deload_week, muscle_groups,
-                split_template, split_days, split_order)
-               VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p})""",
+                split_template, split_days, split_order, meso_type)
+               VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p},{p})""",
             (user_id, name, str(start_date), weeks, deload_week, json.dumps(muscle_groups),
              split_template, json.dumps(split_days) if split_days else None,
-             json.dumps(split_order) if split_order else None)
+             json.dumps(split_order) if split_order else None, meso_type)
         )
         meso_id = c.lastrowid
     conn.commit()
