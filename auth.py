@@ -13,10 +13,13 @@ _COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days (used as JS expiry hint only)
 # ── localStorage helpers via streamlit-js-eval ────────────────────────────────
 
 def _js_get_token() -> str | None:
-    """Read token from localStorage. Returns None on first render (async)."""
+    """
+    Returns token string, empty string (no token), or None (JS not run yet).
+    Using || '' ensures null becomes '' so we can distinguish from not-loaded.
+    """
     from streamlit_js_eval import streamlit_js_eval
     return streamlit_js_eval(
-        js_expressions=f"localStorage.getItem('{_LS_KEY}')",
+        js_expressions=f"localStorage.getItem('{_LS_KEY}') || ''",
         key="_rp_ls_get"
     )
 
