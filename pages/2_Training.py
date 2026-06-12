@@ -182,6 +182,8 @@ rcfg = RIR_CONFIG[rir]
 
 col_title, col_meta = st.columns([3, 2])
 col_title.title("🏋️ Training")
+rcfg_color = rcfg["color"]
+rcfg_label = rcfg["label"]
 with col_meta:
     st.markdown(f"""
     <div style='text-align:right; padding-top:12px'>
@@ -189,7 +191,7 @@ with col_meta:
         <span style='font-size:1.1rem; font-weight:700'>
             Woche {display_week}/{meso['weeks']}
             &nbsp;
-            <span style='color:{rcfg["color"]}'>● {rcfg["label"]}</span>
+            <span style='color:{rcfg_color}'>● {rcfg_label}</span>
         </span>
     </div>
     """, unsafe_allow_html=True)
@@ -202,10 +204,12 @@ if not is_deload:
         rc = RIR_CONFIG[r]
         is_now = w == current_week
         active_cls = "active" if is_now else ""
+        dot_color = rc["color"] if is_now else "#444"
+        rc_label = rc["label"]
         cols_w[w-1].markdown(
             f"<div class='week-pill {active_cls}'>"
             f"W{w}"
-            f"<span class='rir-dot' style='color:{rc[\"color\"] if is_now else \"#444\"}'>{rc['label']}</span>"
+            f"<span class='rir-dot' style='color:{dot_color}'>{rc_label}</span>"
             f"</div>",
             unsafe_allow_html=True
         )
@@ -222,11 +226,12 @@ else:
         st.rerun()
 
 # RIR banner
+rcfg_pct = int(rcfg["pct"] * 100)
 st.markdown(
-    f"<div class='rir-banner' style='border-color:{rcfg[\"color\"]}'>"
-    f"<span style='color:{rcfg[\"color\"]};font-weight:700'>{rcfg['label']}</span>"
+    f"<div class='rir-banner' style='border-color:{rcfg_color}'>"
+    f"<span style='color:{rcfg_color};font-weight:700'>{rcfg_label}</span>"
     f" &nbsp;—&nbsp; Stoppe jeden Satz mit noch <strong>{rir} Wdh.</strong> in Reserve"
-    f" &nbsp;·&nbsp; Gewicht: <strong>{int(rcfg['pct']*100)}% vom 10RM</strong>"
+    f" &nbsp;·&nbsp; Gewicht: <strong>{rcfg_pct}% vom 10RM</strong>"
     f"</div>",
     unsafe_allow_html=True
 )
@@ -291,6 +296,9 @@ with tab_new:
     # ── Exercise blocks ───────────────────────────────────────────────────────
     session_sets = {}
     rcfg_active = RIR_CONFIG[active_rir]
+    rcfg_active_color = rcfg_active["color"]
+    rcfg_active_label = rcfg_active["label"]
+    rcfg_active_pct = int(rcfg_active["pct"] * 100)
 
     # Frequency per muscle + last feedback
     mg_frequency = {}
@@ -376,7 +384,7 @@ with tab_new:
                     st.markdown(
                         f"<div class='weight-box'>"
                         f"Vorschlag: <b>{w_sug:.1f} kg</b>"
-                        f" &nbsp;<span style='color:#555'>{int(rcfg_active['pct']*100)}% · 10RM {stored_10rm:.1f} kg · {rcfg_active['label']}</span>"
+                        f" &nbsp;<span style='color:#555'>{rcfg_active_pct}% · 10RM {stored_10rm:.1f} kg · {rcfg_active_label}</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
@@ -388,7 +396,7 @@ with tab_new:
                 st.markdown(
                     f"<div class='set-header'>"
                     f"<div>#</div><div>kg</div><div>Wdh.</div>"
-                    f"<div>RIR <span style='color:{rcfg_active['color']}'>({active_rir} Ziel)</span></div>"
+                    f"<div>RIR <span style='color:{rcfg_active_color}'>({active_rir} Ziel)</span></div>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
