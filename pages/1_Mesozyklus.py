@@ -3,7 +3,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import streamlit as st
-import pandas as pd
 from datetime import date
 from data.rp_volumes import RP_VOLUMES, MUSCLE_GROUPS
 from styles import inject_css
@@ -222,23 +221,6 @@ col1.metric("Template", selected_template_name)
 col2.metric("Trainingstage", len(split_days))
 col3.metric("Startvolumen", f"{total_w1} Sets/Wo.")
 col4.metric("Peakvolumen", f"{total_peak} Sets/Wo.")
-
-summary_rows = []
-for mg, cfg in muscle_configs.items():
-    cal = cfg["cal"]
-    row = {
-        "Muskelgruppe": mg,
-        "Trainingstage": ", ".join(d for d, mgs in split_days.items() if mg in mgs),
-        "Quelle": "📊 Kalibriert" if cal["source"] == "calibrated" else "📖 Literatur",
-        "MEV": cal["MEV"], "MAV": f"{cal['MAV_low']}–{cal['MAV_high']}", "MRV": cal["MRV"],
-        "Start": cfg["start_sets"],
-    }
-    for i, s in enumerate(cfg["progression"]):
-        row[f"W{i+1}"] = s
-    row["Deload"] = max(cal["MEV"] - 2, 2)
-    summary_rows.append(row)
-
-st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
 
 st.divider()
 
