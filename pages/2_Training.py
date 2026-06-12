@@ -8,16 +8,17 @@ from datetime import date
 from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
-    update_mesocycle_status, get_ten_rm, save_ten_rm, get_last_feedback_per_muscle
+    update_mesocycle_status, get_ten_rm, save_ten_rm, get_last_feedback_per_muscle,
+    get_last_workout_per_day
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
 from styles import inject_css
-from auth import require_auth, render_sidebar_user
+from auth import require_auth, render_sidebar_user, init_auth
 
 st.set_page_config(page_title="Training", page_icon="🏋️", layout="wide")
 inject_css()
-from auth import _get_controller as _init_cookies; _init_cookies()
+init_auth()
 user = require_auth()
 render_sidebar_user()
 
@@ -202,22 +203,30 @@ with tab_new:
         n = min(len(split_days), 6)
         day_cols = st.columns(n)
         selected_day = st.session_state.get("selected_training_day")
+        last_per_day = get_last_workout_per_day(meso["id"])
 
         for i, day_name in enumerate(split_order):
             muscles_in_day = split_days.get(day_name, [])
             icons = "".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in muscles_in_day)
             is_sel = selected_day == day_name
-            rc_day = RIR_CONFIG[active_rir]
+            last_date = last_per_day.get(day_name)
+            if last_date:
+                from datetime import date as _date
+                try:
+                    delta = (_date.today() - _date.fromisoformat(last_date)).days
+                    last_label = f"vor {delta}d" if delta > 0 else "heute"
+                except Exception:
+                    last_label = last_date
+            else:
+                last_label = "noch nie"
             with day_cols[i % n]:
-                btn_style = f"background:{rc_day['bg']};border:2px solid {rc_day['color']}" if is_sel else ""
                 if st.button(
-                    f"{'✓ ' if is_sel else ''}{day_name}\n{icons}",
+                    f"{'✓ ' if is_sel else ''}{day_name}\n{icons}\n_{last_label}_",
                     key=f"day_{day_name}",
                     use_container_width=True,
                     type="primary" if is_sel else "secondary"
                 ):
                     st.session_state["selected_training_day"] = day_name
-                    # clear ex counts when day changes
                     for k in list(st.session_state.keys()):
                         if k.startswith("ex_count_") or k.startswith("ex_count_prev_"):
                             del st.session_state[k]
@@ -405,34 +414,38 @@ with tab_new:
         session_sets[mg] = mg_sets
 
         # Compact feedback
-        with st.expander("Feedback nach letztem Set", expanded=False):
-            fc = st.columns(3)
-            pump = fc[0].slider("Pump 💉", 1, 5, 3, key=f"pump_{mg}")
-            soreness = fc[1].slider("Soreness 😣", 1, 5, 3, key=f"sor_{mg}")
-            perf = fc[2].select_slider(
-                "Performance",
-                options=["–2", "–1", "=", "+1", "+2"],
-                value="=", key=f"perf_{mg}"
-            )
+        with st.expander("💬 Feedback nach letztem Set", expanded=False):
+            _PUMP_OPTS    = ["1 – Kaum spürbar", "2 – Wenig", "3 – Gut", "4 – Stark", "5 – Extrem"]
+            _SOR_OPTS     = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]
+            _PERF_OPTS    = ["–2 Viel schlechter", "–1 Schlechter", "= Gleich", "+1 Besser", "+2 Viel besser"]
+
+            pump_sel = st.radio("Pump 💉", _PUMP_OPTS, index=2, horizontal=True, key=f"pump_{mg}")
+            sor_sel  = st.radio("Soreness 😣", _SOR_OPTS, index=0, horizontal=True, key=f"sor_{mg}")
+            perf_sel = st.radio("Performance ⚡", _PERF_OPTS, index=2, horizontal=True, key=f"perf_{mg}")
+
+            pump = _PUMP_OPTS.index(pump_sel) + 1
+            soreness = _SOR_OPTS.index(sor_sel) + 1
+            perf = ["–2", "–1", "=", "+1", "+2"][_PERF_OPTS.index(perf_sel)]
         session_sets[mg + "__feedback"] = {"pump": pump, "soreness": soreness, "performance": perf}
 
     st.divider()
     notes = st.text_area("Notizen", placeholder="Wie war die Session?", label_visibility="collapsed")
 
     if st.button("💾 Session speichern", type="primary", use_container_width=True):
-        workout_id = create_workout(meso["id"], workout_date, week_num, notes)
+        workout_id = create_workout(meso["id"], workout_date, week_num, notes, day_name=selected_day)
         perf_map = {"–2": 1, "–1": 2, "=": 3, "+1": 4, "+2": 5}
         updated_rms = []
         for mg in session_muscles:
             for s_data in session_sets.get(mg, []):
                 save_set(workout_id, mg, s_data["exercise"], s_data["set"],
                          s_data["weight"], s_data["reps"], s_data["rir"])
-                # Auto-update 10RM if implied value is higher
+                # Auto-update 10RM using Epley: 1RM = w*(1+(reps+rir)/30), 10RM = 1RM*0.75
                 w = s_data["weight"]
+                reps = s_data["reps"]
                 rir = s_data["rir"]
-                if w > 0 and rir in RIR_CONFIG:
-                    pct = RIR_CONFIG[rir]["pct"]
-                    implied_10rm = round(w / pct / 2.5) * 2.5
+                if w > 0:
+                    implied_1rm = w * (1 + (reps + rir) / 30)
+                    implied_10rm = round(implied_1rm * 0.75 / 2.5) * 2.5
                     stored = get_ten_rm(s_data["exercise"], user_id=user["id"]) or 0
                     if implied_10rm > stored:
                         save_ten_rm(s_data["exercise"], implied_10rm, user_id=user["id"])

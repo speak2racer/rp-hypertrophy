@@ -224,6 +224,7 @@ def _migrate(conn):
         migrations = [
             "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
             "ALTER TABLE ten_rm ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
+            "ALTER TABLE workouts ADD COLUMN IF NOT EXISTS day_name TEXT",
             # Drop old unique constraint on exercise alone and replace with (user_id, exercise)
             # Safe to ignore errors if constraint doesn't exist
         ]
@@ -252,6 +253,7 @@ def _migrate(conn):
         for sql in [
             "ALTER TABLE mesocycles ADD COLUMN user_id INTEGER",
             "ALTER TABLE ten_rm ADD COLUMN user_id INTEGER",
+            "ALTER TABLE workouts ADD COLUMN day_name TEXT",
             """CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -403,25 +405,40 @@ def get_muscle_configs(meso_id):
 
 # ── Workouts ──────────────────────────────────────────────────────────────────
 
-def create_workout(meso_id, workout_date, week_number, notes=""):
+def create_workout(meso_id, workout_date, week_number, notes="", day_name=None):
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
     if _use_postgres():
         c.execute(
-            f"INSERT INTO workouts (meso_id, date, week_number, notes) VALUES ({p},{p},{p},{p}) RETURNING id",
-            (meso_id, str(workout_date), week_number, notes)
+            f"INSERT INTO workouts (meso_id, date, week_number, notes, day_name) VALUES ({p},{p},{p},{p},{p}) RETURNING id",
+            (meso_id, str(workout_date), week_number, notes, day_name)
         )
         wid = c.fetchone()[0]
     else:
         c.execute(
-            f"INSERT INTO workouts (meso_id, date, week_number, notes) VALUES ({p},{p},{p},{p})",
-            (meso_id, str(workout_date), week_number, notes)
+            f"INSERT INTO workouts (meso_id, date, week_number, notes, day_name) VALUES ({p},{p},{p},{p},{p})",
+            (meso_id, str(workout_date), week_number, notes, day_name)
         )
         wid = c.lastrowid
     conn.commit()
     conn.close()
     return wid
+
+
+def get_last_workout_per_day(meso_id: int) -> dict[str, str]:
+    """Returns {day_name: last_date_string} for all days trained in this meso."""
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        f"SELECT day_name, MAX(date) as last_date FROM workouts "
+        f"WHERE meso_id={p} AND day_name IS NOT NULL GROUP BY day_name",
+        (meso_id,)
+    )
+    rows = _fetchall_as_dicts(c)
+    conn.close()
+    return {r["day_name"]: r["last_date"] for r in rows}
 
 
 def get_workouts(meso_id=None):
@@ -562,18 +579,17 @@ def save_ten_rm(exercise: str, weight: float, user_id=None):
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
-    if _use_postgres():
-        c.execute(
-            f"""INSERT INTO ten_rm (user_id, exercise, weight) VALUES ({p},{p},{p})
-               ON CONFLICT (user_id, exercise) DO UPDATE SET weight={p}, updated_at=NOW()""",
-            (user_id, exercise, weight, weight)
-        )
+    # Use manual upsert — avoids dependency on UNIQUE constraint existing
+    if user_id is not None:
+        c.execute(f"SELECT id FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
     else:
-        c.execute(
-            f"""INSERT INTO ten_rm (user_id, exercise, weight) VALUES ({p},{p},{p})
-               ON CONFLICT(user_id, exercise) DO UPDATE SET weight={p}, updated_at=CURRENT_TIMESTAMP""",
-            (user_id, exercise, weight, weight)
-        )
+        c.execute(f"SELECT id FROM ten_rm WHERE exercise={p} AND user_id IS NULL", (exercise,))
+    row = c.fetchone()
+    if row:
+        c.execute(f"UPDATE ten_rm SET weight={p} WHERE id={p}", (weight, row[0]))
+    else:
+        c.execute(f"INSERT INTO ten_rm (user_id, exercise, weight) VALUES ({p},{p},{p})",
+                  (user_id, exercise, weight))
     conn.commit()
     conn.close()
 

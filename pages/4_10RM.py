@@ -5,14 +5,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import streamlit as st
 import pandas as pd
 from styles import inject_css
-from auth import require_auth, render_sidebar_user
+from auth import require_auth, render_sidebar_user, init_auth
 from database import get_ten_rm, save_ten_rm, get_all_ten_rms
 from data.exercises import EXERCISES
 from data.rp_volumes import RP_VOLUMES
 
 st.set_page_config(page_title="10RM", page_icon="⚖️", layout="wide")
 inject_css()
-from auth import _get_controller as _init_cookies; _init_cookies()
+init_auth()
 user = require_auth()
 render_sidebar_user()
 st.markdown("""

@@ -7,15 +7,13 @@ from database import (
 )
 
 _COOKIE_NAME = "rp_session"
-_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
+_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 
 
-def _get_controller():
+def _controller():
+    """Always create fresh instance — never cache in session_state."""
     from streamlit_cookies_controller import CookieController
-    # Use a single instance per session to avoid duplicate component keys
-    if "_cookie_ctrl" not in st.session_state:
-        st.session_state["_cookie_ctrl"] = CookieController(key="rp_cookies")
-    return st.session_state["_cookie_ctrl"]
+    return CookieController(key="rp_cookies")
 
 
 def _hash_password(password: str, salt: str) -> str:
@@ -64,8 +62,7 @@ def login_user(username: str, password: str) -> tuple[bool, str, dict | None, st
     conn.close()
     if not row:
         return False, "Benutzername nicht gefunden.", None, None
-    expected = _hash_password(password, row["salt"])
-    if expected != row["password_hash"]:
+    if _hash_password(password, row["salt"]) != row["password_hash"]:
         return False, "Falsches Passwort.", None, None
     user = {"id": row["id"], "username": row["username"]}
     token = _new_token()
@@ -73,36 +70,53 @@ def login_user(username: str, password: str) -> tuple[bool, str, dict | None, st
     return True, "Erfolgreich eingeloggt.", user, token
 
 
+def init_auth():
+    """
+    Call once at the top of every page BEFORE any st.stop().
+    Handles the two-render-cycle needed for the cookie component to load.
+    Returns True when auth state is resolved (render 2+).
+    Returns False on render 1 (shows loading, triggers rerun).
+    """
+    ctrl = _controller()
+
+    # session_state already has user → done
+    if "auth_user" in st.session_state:
+        return True
+
+    # First render after a hard refresh: component needs one cycle to load
+    if "cookie_checked" not in st.session_state:
+        st.session_state["cookie_checked"] = False
+        # Show nothing, let component trigger the automatic rerun
+        st.markdown(
+            "<div style='display:flex;align-items:center;justify-content:center;"
+            "height:100vh;color:#555;font-size:0.9rem'>Laden …</div>",
+            unsafe_allow_html=True
+        )
+        st.stop()
+
+    # Second+ render: cookies are available now
+    token = ctrl.get(_COOKIE_NAME)
+    if token:
+        user = get_user_by_token(str(token))
+        if user:
+            st.session_state["auth_user"] = user
+            st.session_state["auth_token"] = str(token)
+            return True
+
+    return False
+
+
 def set_auth_cookie(token: str):
-    try:
-        ctrl = _get_controller()
-        ctrl.set(_COOKIE_NAME, token, max_age=_COOKIE_MAX_AGE)
-    except Exception:
-        pass
-
-
-def _load_user_from_cookie() -> dict | None:
-    try:
-        ctrl = _get_controller()
-        token = ctrl.get(_COOKIE_NAME)
-        if token:
-            user = get_user_by_token(str(token))
-            if user:
-                st.session_state["auth_user"] = user
-                st.session_state["auth_token"] = str(token)
-                return user
-    except Exception:
-        pass
-    return None
+    ctrl = _controller()
+    ctrl.set(_COOKIE_NAME, token, max_age=_COOKIE_MAX_AGE)
 
 
 def get_current_user() -> dict | None:
-    if "auth_user" in st.session_state:
-        return st.session_state["auth_user"]
-    return _load_user_from_cookie()
+    return st.session_state.get("auth_user")
 
 
 def require_auth() -> dict:
+    """Call after init_auth(). Redirects to login if not authenticated."""
     user = get_current_user()
     if not user:
         st.switch_page("app.py")
@@ -113,11 +127,11 @@ def require_auth() -> dict:
 def logout():
     token = st.session_state.pop("auth_token", None)
     st.session_state.pop("auth_user", None)
+    st.session_state.pop("cookie_checked", None)
     if token:
         delete_session(token)
     try:
-        ctrl = _get_controller()
-        ctrl.remove(_COOKIE_NAME)
+        _controller().remove(_COOKIE_NAME)
     except Exception:
         pass
 

@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import date
 from data.rp_volumes import RP_VOLUMES, MUSCLE_GROUPS
 from styles import inject_css
-from auth import require_auth, render_sidebar_user
+from auth import require_auth, render_sidebar_user, init_auth
 from data.exercises import EXERCISES
 from data.templates import TEMPLATES, TEMPLATE_NAMES
 from database import create_mesocycle, save_muscle_config, get_mesocycles, update_mesocycle_status
@@ -15,7 +15,7 @@ from calibration import get_calibrated_volumes
 
 st.set_page_config(page_title="Mesozyklus-Planer", page_icon="📅", layout="wide")
 inject_css()
-from auth import _get_controller as _init_cookies; _init_cookies()
+init_auth()
 user = require_auth()
 render_sidebar_user()
 st.markdown("""

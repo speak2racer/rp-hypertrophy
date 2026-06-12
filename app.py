@@ -7,7 +7,7 @@ from datetime import date
 from database import get_mesocycles, update_mesocycle_status, delete_mesocycle
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
-from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_cookie
+from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_cookie, init_auth
 
 st.set_page_config(
     page_title="RP Hypertrophy",
@@ -17,12 +17,10 @@ st.set_page_config(
 )
 inject_css()
 
-# ── Init cookie controller early (must happen before any st.stop()) ───────────
-from auth import _get_controller as _init_cookies
-_init_cookies()
-
 # ── Auth Gate ─────────────────────────────────────────────────────────────────
-if not get_current_user():
+# init_auth() handles the cookie component timing (2 render cycles needed).
+# On first render it shows "Laden…" and stops; on second render cookies are available.
+if not init_auth():
     st.markdown("""
     <div style='max-width:400px;margin:60px auto'>
         <div style='text-align:center;margin-bottom:32px'>
