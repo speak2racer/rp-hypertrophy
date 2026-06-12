@@ -4,13 +4,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import streamlit as st
 import pandas as pd
+from styles import inject_css
 from database import get_ten_rm, save_ten_rm, get_all_ten_rms
 from data.exercises import EXERCISES
 from data.rp_volumes import RP_VOLUMES
 
 st.set_page_config(page_title="10RM", page_icon="⚖️", layout="wide")
-st.title("⚖️ 10RM-Werte")
-st.caption("Maximales Gewicht für 10 saubere Wiederholungen — Basis für alle Gewichtsvorschläge im Training.")
+inject_css()
+st.markdown("""
+<div class='page-header'>
+    <p class='page-title'>⚖️ 10RM-Werte</p>
+    <p class='page-sub'>Maximales Gewicht für 10 saubere Wiederholungen — Basis für alle Gewichtsvorschläge im Training</p>
+</div>
+""", unsafe_allow_html=True)
 
 all_exercises = []
 for mg, ex_list in EXERCISES.items():

@@ -12,66 +12,10 @@ from database import (
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
+from styles import inject_css
 
 st.set_page_config(page_title="Training", page_icon="🏋️", layout="wide")
-
-st.markdown("""
-<style>
-/* Base */
-div[data-testid="stNumberInput"] input { text-align:center; }
-
-/* Week bar pills */
-.week-pill {
-    text-align:center; padding:6px 4px; border-radius:6px;
-    font-size:0.75rem; border:1px solid #2d2d2d; color:#aaa;
-}
-.week-pill.active {
-    border-color:#555; background:#1e1e1e; color:#fff; font-weight:700;
-}
-.week-pill .rir-dot { display:block; font-size:0.7rem; margin-top:2px; }
-
-/* RIR banner */
-.rir-banner {
-    padding:10px 16px; border-radius:6px; margin:8px 0;
-    border-left:3px solid; font-size:0.9rem;
-    background:#141414;
-}
-
-/* Muscle header */
-.mg-header {
-    display:flex; align-items:baseline; gap:10px;
-    padding:10px 0 4px; border-bottom:1px solid #2a2a2a;
-    margin-top:12px;
-}
-.mg-title { font-size:1.05rem; font-weight:700; color:#f0f0f0; }
-.mg-meta  { font-size:0.8rem; color:#666; }
-.mg-badge {
-    font-size:0.75rem; padding:1px 8px; border-radius:10px;
-    background:#2a2a2a; color:#aaa; margin-left:4px;
-}
-
-/* Weight suggestion box */
-.weight-box {
-    padding:8px 12px; border-radius:4px; margin:6px 0 4px;
-    background:#161616; border:1px solid #2d2d2d;
-    font-size:0.85rem; color:#aaa;
-}
-.weight-box b { color:#f0f0f0; font-size:1.05rem; }
-
-/* Set grid header */
-.set-header {
-    display:grid; grid-template-columns:28px 1fr 1fr 1fr;
-    gap:4px; padding:4px 0 2px;
-    font-size:0.72rem; font-weight:600; color:#555;
-    text-transform:uppercase; letter-spacing:.04em;
-}
-
-/* Set count indicator */
-.sets-ok    { color:#4caf50; font-size:0.85rem; }
-.sets-low   { color:#888;    font-size:0.85rem; }
-.sets-over  { color:#888;    font-size:0.85rem; }
-</style>
-""", unsafe_allow_html=True)
+inject_css()
 
 # ── RIR logic (RP: 3→3→2→2→1 for 5 weeks) ───────────────────────────────────
 

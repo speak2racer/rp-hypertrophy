@@ -6,14 +6,20 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 from data.rp_volumes import RP_VOLUMES, MUSCLE_GROUPS
+from styles import inject_css
 from data.exercises import EXERCISES
 from data.templates import TEMPLATES, TEMPLATE_NAMES
 from database import create_mesocycle, save_muscle_config, get_mesocycles, update_mesocycle_status
 from calibration import get_calibrated_volumes
 
 st.set_page_config(page_title="Mesozyklus-Planer", page_icon="📅", layout="wide")
-st.title("📅 Mesozyklus-Planer")
-st.caption("Plane deinen nächsten Hypertrophie-Zyklus nach RP-Prinzipien")
+inject_css()
+st.markdown("""
+<div class='page-header'>
+    <p class='page-title'>📅 Mesozyklus-Planer</p>
+    <p class='page-sub'>Plane deinen nächsten Hypertrophie-Zyklus nach RP-Prinzipien</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Step 1: Basic Settings ────────────────────────────────────────────────────
 st.subheader("1. Grundeinstellungen")

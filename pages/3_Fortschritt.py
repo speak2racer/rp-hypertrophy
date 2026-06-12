@@ -4,6 +4,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import streamlit as st
 import pandas as pd
+from styles import inject_css
 from database import (
     get_mesocycles, get_sets_per_muscle_per_week, get_all_sets_for_exercise,
     get_all_feedback_for_meso, get_workouts, get_sets
@@ -13,7 +14,13 @@ from data.exercises import EXERCISES
 from calibration import calibrate_muscle
 
 st.set_page_config(page_title="Fortschritt", page_icon="📊", layout="wide")
-st.title("📊 Fortschritt & Analyse")
+inject_css()
+st.markdown("""
+<div class='page-header'>
+    <p class='page-title'>📊 Fortschritt & Analyse</p>
+    <p class='page-sub'>Volumen, Stärke, Feedback und Kalibrierung im Überblick</p>
+</div>
+""", unsafe_allow_html=True)
 
 mesocycles = get_mesocycles()
 if not mesocycles:
