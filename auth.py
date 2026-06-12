@@ -1,7 +1,18 @@
 import hashlib
 import os
 import streamlit as st
-from database import get_conn, _placeholder, _fetchone_as_dict, _use_postgres
+from database import (
+    get_conn, _placeholder, _fetchone_as_dict, _use_postgres,
+    create_session, get_user_by_token, delete_session
+)
+
+_COOKIE_NAME = "rp_session"
+_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+
+
+def _get_cookie_manager():
+    import extra_streamlit_components as stx
+    return stx.CookieManager(key="rp_cookie_mgr")
 
 
 def _hash_password(password: str, salt: str) -> str:
@@ -10,6 +21,10 @@ def _hash_password(password: str, salt: str) -> str:
 
 def _new_salt() -> str:
     return os.urandom(16).hex()
+
+
+def _new_token() -> str:
+    return os.urandom(32).hex()
 
 
 def register_user(username: str, password: str) -> tuple[bool, str]:
@@ -49,15 +64,41 @@ def login_user(username: str, password: str) -> tuple[bool, str, dict | None]:
     expected = _hash_password(password, row["salt"])
     if expected != row["password_hash"]:
         return False, "Falsches Passwort.", None
-    return True, "Erfolgreich eingeloggt.", {"id": row["id"], "username": row["username"]}
+    user = {"id": row["id"], "username": row["username"]}
+    # Create persistent token
+    token = _new_token()
+    create_session(row["id"], token)
+    return True, "Erfolgreich eingeloggt.", user, token
 
 
 def get_current_user() -> dict | None:
-    return st.session_state.get("auth_user")
+    # 1. Already in session state (fast path)
+    if "auth_user" in st.session_state:
+        return st.session_state["auth_user"]
+    # 2. Try cookie
+    try:
+        cm = _get_cookie_manager()
+        token = cm.get(_COOKIE_NAME)
+        if token:
+            user = get_user_by_token(token)
+            if user:
+                st.session_state["auth_user"] = user
+                st.session_state["auth_token"] = token
+                return user
+    except Exception:
+        pass
+    return None
+
+
+def set_auth_cookie(token: str):
+    try:
+        cm = _get_cookie_manager()
+        cm.set(_COOKIE_NAME, token, max_age=_COOKIE_MAX_AGE)
+    except Exception:
+        pass
 
 
 def require_auth() -> dict:
-    """Call at top of every page. Returns user dict or stops the page."""
     user = get_current_user()
     if not user:
         st.switch_page("app.py")
@@ -66,7 +107,15 @@ def require_auth() -> dict:
 
 
 def logout():
+    token = st.session_state.pop("auth_token", None)
     st.session_state.pop("auth_user", None)
+    if token:
+        delete_session(token)
+    try:
+        cm = _get_cookie_manager()
+        cm.delete(_COOKIE_NAME)
+    except Exception:
+        pass
 
 
 def render_sidebar_user():

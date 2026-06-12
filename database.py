@@ -135,6 +135,11 @@ _SCHEMA_SQLITE = """
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, exercise)
     );
+    CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
 """
 
 _SCHEMA_POSTGRES = """
@@ -204,6 +209,11 @@ _SCHEMA_POSTGRES = """
         updated_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(user_id, exercise)
     );
+    CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
 """
 
 
@@ -228,11 +238,25 @@ def _migrate(conn):
             c.execute("ALTER TABLE ten_rm ADD CONSTRAINT ten_rm_user_exercise UNIQUE (user_id, exercise)")
         except Exception:
             pass
+        # sessions table
+        try:
+            c.execute("""CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT NOW()
+            )""")
+        except Exception:
+            pass
     else:
         # SQLite: try adding columns, ignore if already exist
         for sql in [
             "ALTER TABLE mesocycles ADD COLUMN user_id INTEGER",
             "ALTER TABLE ten_rm ADD COLUMN user_id INTEGER",
+            """CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )""",
         ]:
             try:
                 c.execute(sql)
@@ -598,6 +622,37 @@ def get_all_ten_rms(user_id=None) -> dict[str, float]:
     rows = c.fetchall()
     conn.close()
     return {r[0]: r[1] for r in rows}
+
+
+def create_session(user_id: int, token: str):
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"INSERT INTO sessions (token, user_id) VALUES ({p},{p})", (token, user_id))
+    conn.commit()
+    conn.close()
+
+
+def get_user_by_token(token: str) -> dict | None:
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        f"SELECT u.id, u.username FROM users u JOIN sessions s ON u.id=s.user_id WHERE s.token={p}",
+        (token,)
+    )
+    row = _fetchone_as_dict(c)
+    conn.close()
+    return row
+
+
+def delete_session(token: str):
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"DELETE FROM sessions WHERE token={p}", (token,))
+    conn.commit()
+    conn.close()
 
 
 init_db()

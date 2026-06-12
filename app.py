@@ -7,7 +7,7 @@ from datetime import date
 from database import get_mesocycles, update_mesocycle_status, delete_mesocycle
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
-from auth import login_user, register_user, get_current_user, render_sidebar_user
+from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_cookie
 
 st.set_page_config(
     page_title="RP Hypertrophy",
@@ -37,9 +37,11 @@ if not get_current_user():
             password = st.text_input("Passwort", type="password")
             submitted = st.form_submit_button("Anmelden", type="primary", use_container_width=True)
         if submitted:
-            ok, msg, user = login_user(username, password)
+            ok, msg, user, token = login_user(username, password)
             if ok:
                 st.session_state["auth_user"] = user
+                st.session_state["auth_token"] = token
+                set_auth_cookie(token)
                 st.rerun()
             else:
                 st.error(msg)
