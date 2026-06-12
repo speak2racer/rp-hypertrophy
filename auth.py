@@ -106,22 +106,27 @@ def init_auth() -> bool:
     Call at top of every page before any st.stop().
 
     Flow:
-      - If auth_user in session_state → already logged in, return True
-      - First render: localStorage not read yet → show loading, st.stop()
+      - If auth_user in session_state:
+          → write pending token to localStorage if queued, then return True
+      - First render: localStorage not read yet (JS returns None) → show loading
         streamlit-js-eval triggers automatic rerun when JS resolves
       - Second+ render: localStorage value available
-        → validate token → set session_state → return True
-        → no valid token → return False (show login)
+          → "" → no token → return False (show login)
+          → token string → validate → set session_state → return True
     """
-    # Already authenticated
+    # Already authenticated — write pending token if login just happened
     if "auth_user" in st.session_state:
+        pending = st.session_state.pop("_pending_token_save", None)
+        if pending:
+            # Render the set-component NOW (page continues, browser can execute it)
+            _js_set_token(pending)
         return True
 
     # Read token from localStorage (returns None on first render)
     token = _js_get_token()
 
     if token is None:
-        # Component hasn't executed JS yet — will auto-rerun when it does
+        # JS not executed yet — auto-rerun will follow when component resolves
         st.markdown(
             "<div style='display:flex;align-items:center;justify-content:center;"
             "height:80vh;color:#444;font-size:0.9rem'>Laden …</div>",
@@ -129,7 +134,7 @@ def init_auth() -> bool:
         )
         st.stop()
 
-    # token is "" (empty string) or a real token
+    # token is "" (no entry in localStorage) or a real hex token
     if token:
         user = get_user_by_token(str(token))
         if user:
@@ -141,8 +146,8 @@ def init_auth() -> bool:
 
 
 def set_auth_token(token: str):
-    """Persist token to localStorage after login."""
-    _js_set_token(token)
+    """Queue token to be written to localStorage on the next render."""
+    st.session_state["_pending_token_save"] = token
 
 
 def get_current_user() -> dict | None:
