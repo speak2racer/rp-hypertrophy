@@ -144,8 +144,15 @@ EXERCISES = {
         {"name": "Reverse Lunge", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Step-Up", "equipment": "Dumbbell", "sfr": "medium"},
     ],
-    "Hamstrings": [
-        # High SFR
+    "Hamstrings & Glutes": [
+        # High SFR — Glutes
+        {"name": "Barbell Hip Thrust", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Smith Machine Hip Thrust", "equipment": "Machine", "sfr": "high"},
+        {"name": "DB Hip Thrust", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Single-Leg Hip Thrust", "equipment": "Bodyweight", "sfr": "high"},
+        {"name": "Cable Kickback", "equipment": "Cable", "sfr": "high"},
+        {"name": "Reverse Hyper", "equipment": "Machine", "sfr": "high"},
+        # High SFR — Hamstrings
         {"name": "Leg Curl (seated)", "equipment": "Machine", "sfr": "high"},
         {"name": "Leg Curl (lying)", "equipment": "Machine", "sfr": "high"},
         {"name": "Leg Curl (standing)", "equipment": "Machine", "sfr": "high"},
@@ -155,31 +162,14 @@ EXERCISES = {
         {"name": "45° Back Extension", "equipment": "Machine", "sfr": "high"},
         {"name": "Cable Pull-Through", "equipment": "Cable", "sfr": "high"},
         # Medium SFR
+        {"name": "Glute Bridge", "equipment": "Bodyweight", "sfr": "medium"},
+        {"name": "Abductor Machine", "equipment": "Machine", "sfr": "medium"},
+        {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Bulgarian Split Squat", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Nordic Curl", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Glute-Ham Raise", "equipment": "Machine", "sfr": "medium"},
         {"name": "Good Morning", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
-        {"name": "Swiss Ball Leg Curl", "equipment": "Equipment", "sfr": "medium"},
-    ],
-    "Glutes": [
-        # High SFR
-        {"name": "Barbell Hip Thrust", "equipment": "Barbell", "sfr": "high"},
-        {"name": "Smith Machine Hip Thrust", "equipment": "Machine", "sfr": "high"},
-        {"name": "DB Hip Thrust", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Single-Leg Hip Thrust", "equipment": "Bodyweight", "sfr": "high"},
-        {"name": "Cable Kickback", "equipment": "Cable", "sfr": "high"},
-        {"name": "Cable Hip Abduction", "equipment": "Cable", "sfr": "high"},
-        {"name": "Reverse Hyper", "equipment": "Machine", "sfr": "high"},
-        {"name": "45° Back Extension (glute focus)", "equipment": "Machine", "sfr": "high"},
-        {"name": "Cable Pull-Through", "equipment": "Cable", "sfr": "high"},
-        # Medium SFR
-        {"name": "Glute Bridge", "equipment": "Bodyweight", "sfr": "medium"},
-        {"name": "Frog Pump", "equipment": "Bodyweight", "sfr": "medium"},
-        {"name": "Abductor Machine", "equipment": "Machine", "sfr": "medium"},
-        {"name": "Monster Walk (band)", "equipment": "Equipment", "sfr": "medium"},
-        {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
-        {"name": "Bulgarian Split Squat", "equipment": "Dumbbell", "sfr": "medium"},
-        {"name": "Step-Up", "equipment": "Dumbbell", "sfr": "medium"},
     ],
     "Calves": [
         # High SFR

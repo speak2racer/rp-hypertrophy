@@ -35,13 +35,9 @@ RP_VOLUMES = {
         "MEV": 8, "MAV_low": 12, "MAV_high": 18, "MRV": 20,
         "freq_per_week": 2, "icon": "🦵"
     },
-    "Hamstrings": {
-        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 20,
+    "Hamstrings & Glutes": {
+        "MEV": 6, "MAV_low": 10, "MAV_high": 18, "MRV": 22,
         "freq_per_week": 2, "icon": "🦵"
-    },
-    "Glutes": {
-        "MEV": 0, "MAV_low": 4, "MAV_high": 12, "MRV": 16,
-        "freq_per_week": 2, "icon": "🍑"
     },
     "Calves": {
         "MEV": 8, "MAV_low": 12, "MAV_high": 16, "MRV": 20,
