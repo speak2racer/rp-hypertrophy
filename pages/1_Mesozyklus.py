@@ -153,97 +153,44 @@ if not selected_muscles:
 
 st.divider()
 
-# ── Step 3: Volume & Exercise Config per Muscle ───────────────────────────────
-st.subheader("3. Volumen & Übungen konfigurieren")
+# ── Step 3: Exercise Selection ────────────────────────────────────────────────
+st.subheader("3. Übungen wählen")
 
 calibrated = {mg: get_calibrated_volumes(mg) for mg in selected_muscles}
-has_history = any(c["source"] == "calibrated" for c in calibrated.values())
-
-if has_history:
-    st.success("✅ Kalibrierte Werte aus vorherigen Zyklen werden verwendet.")
-else:
-    st.info("ℹ️ Noch kein vorheriger Zyklus — RP-Literaturwerte als Ausgangspunkt.")
-
 muscle_configs = {}
 
-for mg in selected_muscles:
+cols = st.columns(2)
+for i, mg in enumerate(selected_muscles):
     cal = calibrated[mg]
     vol_base = RP_VOLUMES.get(mg, {})
-
-    source_label = (
-        f"📊 kalibriert aus **{cal.get('source_meso', '')}**"
-        if cal["source"] == "calibrated"
-        else "📖 Literaturwert"
-    )
-    confidence_badge = {"high": "🟢", "medium": "🟡", "low": "⚪"}.get(cal.get("confidence", "low"), "⚪")
-
-    # Which days trains this muscle?
+    available = [e["name"] for e in EXERCISES.get(mg, [])]
+    sfr_map = {e["name"]: e["sfr"] for e in EXERCISES.get(mg, [])}
     trains_on = [d for d, mgs in split_days.items() if mg in mgs]
-    freq_label = f"trainiert an: {', '.join(trains_on)}"
+    freq = len(trains_on) if trains_on else 1
 
-    with st.expander(
-        f"{vol_base.get('icon','💪')} **{mg}** — "
-        f"MEV: {cal['MEV']} | MAV: {cal['MAV_low']}–{cal['MAV_high']} | MRV: {cal['MRV']}  "
-        f"{confidence_badge} {source_label}",
-        expanded=False
-    ):
-        freq = len(trains_on) if trains_on else 1
-        st.caption(f"{freq_label} · **{freq}× pro Woche** → je Session: MEV {max(1,round(cal['MEV']/freq))}–MRV {max(1,round(cal['MRV']/freq))} Sets")
+    with cols[i % 2]:
+        icon = vol_base.get("icon", "💪")
+        st.markdown(f"**{icon} {mg}**")
+        chosen = st.multiselect(
+            f"ex_{mg}",
+            options=available,
+            default=available[:2] if len(available) >= 2 else available,
+            key=f"ex_{mg}",
+            label_visibility="collapsed",
+        )
+        sfr_badges = " · ".join(
+            f"{'🟢' if sfr_map.get(e) == 'high' else '🟡'} {e}"
+            for e in chosen
+        )
+        if sfr_badges:
+            st.caption(sfr_badges)
 
-        if cal["source"] == "calibrated":
-            with st.container(border=True):
-                st.caption("**Kalibrierungs-Begründung:** (Wochenwerte)")
-                col_e1, col_e2, col_e3 = st.columns(3)
-                col_e1.info(f"**MEV {cal['MEV']} Sets/Wo.**\n\n{cal['explanations']['MEV']}")
-                col_e2.success(f"**MAV {cal['MAV_low']}–{cal['MAV_high']} Sets/Wo.**\n\n{cal['explanations']['MAV']}")
-                col_e3.warning(f"**MRV {cal['MRV']} Sets/Wo.**\n\n{cal['explanations']['MRV']}")
-
-        c1, c2 = st.columns([1, 2])
-
-        with c1:
-            st.markdown("**Startvolumen (Sets / Woche gesamt)**")
-            start_sets = st.slider(
-                "Sets in Woche 1",
-                min_value=max(cal["MEV"] - 2, 1),
-                max_value=cal["MRV"],
-                value=cal["recommended_start"],
-                key=f"sets_{mg}"
-            )
-
-            if start_sets <= cal["MEV"]:
-                st.info("⚪ unter MEV")
-            elif start_sets <= cal["MAV_high"]:
-                st.success("🟢 MAV (optimal)")
-            elif start_sets < cal["MRV"]:
-                st.warning("🟡 über MAV")
-            else:
-                st.error("🔴 MRV (Maximum)")
-
-            progression = [min(start_sets + (w - 1) * 2, cal["MRV"]) for w in range(1, weeks + 1)]
-            deload_sets = max(cal["MEV"] - 2, 2)
-            st.caption(f"Progression: {' → '.join(map(str, progression))} → Deload: {deload_sets}")
-
-            mrv_week = next((i + 1 for i, s in enumerate(progression) if s >= cal["MRV"]), None)
-            if mrv_week and mrv_week <= weeks - 1:
-                st.warning(f"⚠️ MRV in Woche {mrv_week} erreicht. Erwäge tieferen Start.")
-
-        with c2:
-            st.markdown("**Übungsauswahl**")
-            available = [e["name"] for e in EXERCISES.get(mg, [])]
-            chosen = st.multiselect(
-                "Übungen für diesen Zyklus",
-                options=available,
-                default=available[:2] if len(available) >= 2 else available,
-                key=f"ex_{mg}"
-            )
-            sfr_map = {e["name"]: e["sfr"] for e in EXERCISES.get(mg, [])}
-            for ex in chosen:
-                badge = {"high": "🟢 High SFR", "medium": "🟡 Medium SFR"}.get(sfr_map.get(ex), "")
-                st.caption(f"  {ex}: {badge}")
-
-        muscle_configs[mg] = {
-            "start_sets": start_sets,
-            "exercises": chosen,
+    start_sets = cal["recommended_start"]
+    progression = [min(start_sets + (w - 1) * 2, cal["MRV"]) for w in range(1, weeks + 1)]
+    muscle_configs[mg] = {
+        "start_sets": start_sets,
+        "exercises": chosen,
+        "cal": cal,
             "progression": progression,
             "cal": cal,
         }
