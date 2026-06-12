@@ -22,51 +22,69 @@ EXERCISES = {
         {"name": "Landmine Press", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Push-Up", "equipment": "Bodyweight", "sfr": "medium"},
     ],
-    "Back": [
+    "Lat": [
         # High SFR
-        {"name": "Chest-Supported Machine Row", "equipment": "Machine", "sfr": "high"},
-        {"name": "Chest-Supported DB Row", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Lat Pulldown (neutral grip)", "equipment": "Machine", "sfr": "high"},
         {"name": "Lat Pulldown (wide grip)", "equipment": "Machine", "sfr": "high"},
         {"name": "Single-Arm Pulldown", "equipment": "Cable", "sfr": "high"},
-        {"name": "Seated Cable Row (narrow)", "equipment": "Cable", "sfr": "high"},
-        {"name": "Seated Cable Row (wide)", "equipment": "Cable", "sfr": "high"},
-        {"name": "Seated Machine Row", "equipment": "Machine", "sfr": "high"},
         {"name": "Pull-Up", "equipment": "Bodyweight", "sfr": "high"},
         {"name": "Chin-Up", "equipment": "Bodyweight", "sfr": "high"},
+        {"name": "Seated Cable Row (narrow)", "equipment": "Cable", "sfr": "high"},
+        {"name": "Seated Cable Row (wide)", "equipment": "Cable", "sfr": "high"},
+        {"name": "Single-Arm DB Row", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Chest-Supported DB Row", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Chest-Supported Machine Row", "equipment": "Machine", "sfr": "high"},
+        {"name": "Seated Machine Row", "equipment": "Machine", "sfr": "high"},
         {"name": "Barbell Row", "equipment": "Barbell", "sfr": "high"},
         {"name": "Pendlay Row", "equipment": "Barbell", "sfr": "high"},
         {"name": "T-Bar Row", "equipment": "Barbell", "sfr": "high"},
-        {"name": "Single-Arm DB Row", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
         # Medium SFR
         {"name": "Straight-Arm Pulldown", "equipment": "Cable", "sfr": "medium"},
         {"name": "Meadows Row", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Rack Pull", "equipment": "Barbell", "sfr": "medium"},
-        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
     ],
-    "Shoulders": [
+    "Oberer Rücken": [
+        # High SFR
+        {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
+        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
+        {"name": "Reverse Pec Deck", "equipment": "Machine", "sfr": "high"},
+        {"name": "High Cable Rear Delt Fly", "equipment": "Cable", "sfr": "high"},
+        {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Chest-Supported Row (high)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Seated Cable Row (high pulley)", "equipment": "Cable", "sfr": "high"},
+        # Medium SFR
+        {"name": "Barbell Shrug", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "DB Shrug", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Upright Row", "equipment": "Barbell", "sfr": "medium"},
+    ],
+    "Schulter Seite": [
         # High SFR
         {"name": "Cable Lateral Raise", "equipment": "Cable", "sfr": "high"},
         {"name": "Leaning Cable Lateral Raise", "equipment": "Cable", "sfr": "high"},
         {"name": "Machine Lateral Raise", "equipment": "Machine", "sfr": "high"},
-        {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
-        {"name": "Rear Delt Fly (Machine)", "equipment": "Machine", "sfr": "high"},
-        {"name": "Reverse Pec Deck", "equipment": "Machine", "sfr": "high"},
-        {"name": "High Cable Rear Delt Fly", "equipment": "Cable", "sfr": "high"},
-        {"name": "Rear Delt Fly (DB)", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Dumbbell Lateral Raise", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Landmine Lateral Raise", "equipment": "Barbell", "sfr": "high"},
-        {"name": "Seated DB Press", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Standing DB Press", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Arnold Press", "equipment": "Dumbbell", "sfr": "high"},
         # Medium SFR
+        {"name": "Seated DB Press", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Standing DB Press", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Arnold Press", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Barbell OHP (seated)", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Barbell OHP (standing)", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Machine Shoulder Press", "equipment": "Machine", "sfr": "medium"},
         {"name": "Smith Machine OHP", "equipment": "Machine", "sfr": "medium"},
+    ],
+    "Schulter Hinten": [
+        # High SFR
+        {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
+        {"name": "Reverse Pec Deck", "equipment": "Machine", "sfr": "high"},
+        {"name": "Rear Delt Fly (Machine)", "equipment": "Machine", "sfr": "high"},
+        {"name": "High Cable Rear Delt Fly", "equipment": "Cable", "sfr": "high"},
+        {"name": "Rear Delt Fly (DB)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
+        # Medium SFR
         {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Upright Row (wide grip)", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Biceps": [
         # High SFR
