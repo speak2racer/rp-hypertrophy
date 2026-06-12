@@ -38,7 +38,7 @@ def week_rir(week: int, total_weeks: int) -> int:
     return 1
 
 RIR_CONFIG = {
-    4: {"label": "Deload", "pct": 0.875, "color": "#6b9fd4", "bg": "#141414"},
+    4: {"label": "Deload", "pct": 0.65,  "color": "#6b9fd4", "bg": "#141414"},
     3: {"label": "3 RIR",  "pct": 0.875, "color": "#6b9fd4", "bg": "#141414"},
     2: {"label": "2 RIR",  "pct": 0.925, "color": "#e0a020", "bg": "#141414"},
     1: {"label": "1 RIR",  "pct": 0.975, "color": "#c0392b", "bg": "#141414"},
