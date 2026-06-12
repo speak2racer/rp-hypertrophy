@@ -17,6 +17,10 @@ st.set_page_config(
 )
 inject_css()
 
+# ── Init cookie controller early (must happen before any st.stop()) ───────────
+from auth import _get_controller as _init_cookies
+_init_cookies()
+
 # ── Auth Gate ─────────────────────────────────────────────────────────────────
 if not get_current_user():
     st.markdown("""

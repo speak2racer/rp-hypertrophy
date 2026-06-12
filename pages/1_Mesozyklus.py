@@ -15,6 +15,7 @@ from calibration import get_calibrated_volumes
 
 st.set_page_config(page_title="Mesozyklus-Planer", page_icon="📅", layout="wide")
 inject_css()
+from auth import _get_controller as _init_cookies; _init_cookies()
 user = require_auth()
 render_sidebar_user()
 st.markdown("""

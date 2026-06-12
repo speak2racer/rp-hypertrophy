@@ -17,6 +17,7 @@ from auth import require_auth, render_sidebar_user
 
 st.set_page_config(page_title="Training", page_icon="🏋️", layout="wide")
 inject_css()
+from auth import _get_controller as _init_cookies; _init_cookies()
 user = require_auth()
 render_sidebar_user()
 

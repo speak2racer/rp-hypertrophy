@@ -16,6 +16,7 @@ from calibration import calibrate_muscle
 
 st.set_page_config(page_title="Fortschritt", page_icon="📊", layout="wide")
 inject_css()
+from auth import _get_controller as _init_cookies; _init_cookies()
 user = require_auth()
 render_sidebar_user()
 st.markdown("""
