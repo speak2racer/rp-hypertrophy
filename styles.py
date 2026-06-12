@@ -185,5 +185,59 @@ hr { border-color: #1e1e1e !important; margin: 16px 0 !important; }
     font-size: 0.7rem; font-weight: 600; color: #444;
     text-transform: uppercase; letter-spacing: .06em;
 }
+
+/* ── Mobile optimizations ── */
+@media (max-width: 768px) {
+    /* Larger touch targets for buttons */
+    [data-testid="stButton"] > button {
+        min-height: 48px !important;
+        font-size: 0.95rem !important;
+        padding: 10px 16px !important;
+    }
+    /* Larger inputs */
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextInput"] input {
+        min-height: 48px !important;
+        font-size: 1rem !important;
+    }
+    /* Full-width number inputs */
+    [data-testid="stNumberInput"] {
+        width: 100% !important;
+    }
+    /* Tabs: smaller text, scrollable */
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 0.75rem !important;
+        padding: 6px 8px !important;
+    }
+    /* Metrics: smaller on mobile */
+    [data-testid="stMetricValue"] { font-size: 1.2rem !important; }
+    /* Radio: stack vertically on mobile */
+    [data-testid="stRadio"] > div {
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
+    [data-testid="stRadio"] label {
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+        padding: 8px 12px !important;
+        background: #111 !important;
+        border-radius: 8px !important;
+        border: 1px solid #2a2a2a !important;
+    }
+    /* Page header smaller */
+    .page-title { font-size: 1.2rem !important; }
+    /* Expander summary bigger touch area */
+    [data-testid="stExpander"] summary {
+        min-height: 48px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    /* Selectbox larger */
+    [data-testid="stSelectbox"] > div > div {
+        min-height: 48px !important;
+        font-size: 1rem !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)

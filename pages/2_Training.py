@@ -205,7 +205,7 @@ st.markdown(
 
 st.divider()
 
-tab_new, tab_history = st.tabs(["▶ Neue Session", "📋 Verlauf"])
+tab_new, tab_history, tab_tenrm = st.tabs(["▶ Neue Session", "📋 Verlauf", "🏆 10RM"])
 
 with tab_new:
     # ── Session meta ──────────────────────────────────────────────────────────
@@ -437,13 +437,33 @@ with tab_new:
 
         session_sets[mg] = mg_sets
 
-        # Compact feedback
-        with st.expander("💬 Feedback nach letztem Set", expanded=False):
-            # Show last session as reference for Performance rating
-            last_sets = get_last_sets_for_muscle(meso["id"], mg, day_name=selected_day)
-            if last_sets:
+        # Auto-calculate performance from volume comparison
+        last_sets = get_last_sets_for_muscle(meso["id"], mg, day_name=selected_day)
+        auto_perf = 3  # default: gleich
+        perf_label = "= Gleich"
+        perf_info = None
+        if last_sets:
+            last_vol = sum(s["weight"] * s["reps"] for s in last_sets)
+            cur_vol = sum(s["weight"] * s["reps"]
+                         for s_data in session_sets.get(mg, [])
+                         for s in [s_data])
+            if last_vol > 0 and cur_vol > 0:
+                delta_pct = (cur_vol - last_vol) / last_vol * 100
+                if delta_pct >= 5:
+                    auto_perf = 4; perf_label = "+1 Besser"
+                elif delta_pct >= 10:
+                    auto_perf = 5; perf_label = "+2 Viel besser"
+                elif delta_pct <= -10:
+                    auto_perf = 1; perf_label = "–2 Viel schlechter"
+                elif delta_pct <= -5:
+                    auto_perf = 2; perf_label = "–1 Schlechter"
+                sign = "+" if delta_pct >= 0 else ""
                 ref_date = last_sets[0]["date"]
-                ref_week = last_sets[0]["week_number"]
+                perf_info = f"{sign}{delta_pct:.1f}% Volumen vs. {ref_date}"
+
+        # Feedback expander — only pump + soreness manual
+        with st.expander("💬 Feedback", expanded=False):
+            if last_sets:
                 ref_lines = " &nbsp;|&nbsp; ".join(
                     f"{s['exercise']}: <b>{s['weight']}kg × {s['reps']} ({s['rpe']} RIR)</b>"
                     for s in last_sets
@@ -451,32 +471,38 @@ with tab_new:
                 st.markdown(
                     f"<div style='font-size:0.78rem;color:#888;margin-bottom:8px;padding:6px 8px;"
                     f"background:#111;border-radius:6px;border-left:3px solid #333'>"
-                    f"Letzte Session ({ref_date}, W{ref_week}): {ref_lines}</div>",
+                    f"Letzte Session ({last_sets[0]['date']}, W{last_sets[0]['week_number']}): {ref_lines}</div>",
                     unsafe_allow_html=True
                 )
-                st.caption("**Performance:** Vergleich zu dieser letzten Session.")
-            else:
-                st.caption("**Performance:** Vergleich zur letzten Session an diesem Tag (noch keine Daten).")
 
-            _PUMP_OPTS    = ["1 – Kaum spürbar", "2 – Wenig", "3 – Gut", "4 – Stark", "5 – Extrem"]
-            _SOR_OPTS     = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]
-            _PERF_OPTS    = ["–2 Viel schlechter", "–1 Schlechter", "= Gleich", "+1 Besser", "+2 Viel besser"]
+            if perf_info:
+                perf_color = "#4caf50" if auto_perf >= 4 else ("#f44336" if auto_perf <= 2 else "#888")
+                st.markdown(
+                    f"<div style='font-size:0.82rem;padding:6px 10px;border-radius:6px;"
+                    f"background:#111;border-left:3px solid {perf_color};margin-bottom:8px'>"
+                    f"⚡ Performance automatisch: <b style='color:{perf_color}'>{perf_label}</b>"
+                    f" &nbsp;·&nbsp; {perf_info}</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.caption("⚡ Performance wird beim Speichern automatisch berechnet.")
+
+            _PUMP_OPTS = ["1 – Kaum spürbar", "2 – Wenig", "3 – Gut", "4 – Stark", "5 – Extrem"]
+            _SOR_OPTS  = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]
 
             pump_sel = st.radio("Pump 💉", _PUMP_OPTS, index=2, horizontal=True, key=f"pump_{mg}")
             sor_sel  = st.radio("Soreness 😣", _SOR_OPTS, index=0, horizontal=True, key=f"sor_{mg}")
-            perf_sel = st.radio("Performance ⚡", _PERF_OPTS, index=2, horizontal=True, key=f"perf_{mg}")
 
             pump = _PUMP_OPTS.index(pump_sel) + 1
             soreness = _SOR_OPTS.index(sor_sel) + 1
-            perf = ["–2", "–1", "=", "+1", "+2"][_PERF_OPTS.index(perf_sel)]
-        session_sets[mg + "__feedback"] = {"pump": pump, "soreness": soreness, "performance": perf}
+
+        session_sets[mg + "__feedback"] = {"pump": pump, "soreness": soreness, "performance": auto_perf}
 
     st.divider()
     notes = st.text_area("Notizen", placeholder="Wie war die Session?", label_visibility="collapsed")
 
     if st.button("💾 Session speichern", type="primary", use_container_width=True):
         workout_id = create_workout(meso["id"], workout_date, week_num, notes, day_name=selected_day)
-        perf_map = {"–2": 1, "–1": 2, "=": 3, "+1": 4, "+2": 5}
         updated_rms = []
         for mg in session_muscles:
             for s_data in session_sets.get(mg, []):
@@ -496,7 +522,7 @@ with tab_new:
             fb = session_sets.get(mg + "__feedback", {})
             if fb:
                 save_feedback(workout_id, mg, fb["pump"], fb["soreness"],
-                              perf_map.get(fb["performance"], 3), notes)
+                              fb["performance"], notes)
         if updated_rms:
             st.toast(f"10RM aktualisiert: {', '.join(updated_rms)}")
         for k in list(st.session_state.keys()):
@@ -542,3 +568,44 @@ with tab_history:
                              values="set_count").fillna(0).astype(int)
         pivot.columns = [f"W{c}" for c in pivot.columns]
         st.dataframe(pivot, use_container_width=True)
+
+# ── 10RM tab ──────────────────────────────────────────────────────────────────
+with tab_tenrm:
+    from database import get_all_ten_rms
+    st.subheader("🏆 Aktuelle 10RM-Werte")
+    st.caption("Werden automatisch aktualisiert wenn du einen neuen persönlichen Rekord erzielst. Hier kannst du sie auch manuell anpassen.")
+
+    ten_rms = get_all_ten_rms(user_id=get_effective_user_id())
+
+    if not ten_rms:
+        st.info("Noch keine 10RM-Werte — werden beim Training automatisch erfasst.")
+    else:
+        # Group by muscle group
+        ex_to_mg = {e["name"]: mg for mg, exs in EXERCISES.items() for e in exs}
+
+        by_muscle = {}
+        for ex, w in sorted(ten_rms.items()):
+            mg = ex_to_mg.get(ex, "Sonstige")
+            by_muscle.setdefault(mg, []).append((ex, w))
+
+        for mg, entries in sorted(by_muscle.items()):
+            vol = RP_VOLUMES.get(mg, {})
+            icon = vol.get("icon", "💪")
+            st.markdown(f"**{icon} {mg}**")
+            cols = st.columns(2)
+            for i, (ex, weight) in enumerate(entries):
+                with cols[i % 2]:
+                    new_w = st.number_input(
+                        ex,
+                        min_value=0.0,
+                        max_value=500.0,
+                        value=float(weight),
+                        step=2.5,
+                        key=f"tenrm_{ex}",
+                    )
+                    if new_w != weight:
+                        if st.button(f"💾 Speichern", key=f"save_tenrm_{ex}"):
+                            save_ten_rm(ex, new_w, user_id=get_effective_user_id())
+                            st.toast(f"✅ {ex}: {new_w} kg gespeichert")
+                            st.rerun()
+            st.divider()
