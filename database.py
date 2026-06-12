@@ -504,6 +504,29 @@ def get_ten_rm(exercise: str) -> float | None:
     return row[0] if row else None
 
 
+def get_last_feedback_per_muscle(meso_id: int) -> dict:
+    """Returns the most recent feedback entry per muscle group for a mesocycle."""
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        f"""SELECT f.muscle_group, f.pump, f.soreness, f.performance, w.date, w.week_number
+           FROM session_feedback f
+           JOIN workouts w ON f.workout_id = w.id
+           WHERE w.meso_id={p}
+           ORDER BY w.date DESC, w.id DESC""",
+        (meso_id,)
+    )
+    rows = _fetchall_as_dicts(c)
+    conn.close()
+    seen = {}
+    for r in rows:
+        mg = r["muscle_group"]
+        if mg not in seen:
+            seen[mg] = r
+    return seen
+
+
 def get_all_ten_rms() -> dict[str, float]:
     conn = get_conn()
     c = conn.cursor()

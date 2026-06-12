@@ -8,7 +8,7 @@ from datetime import date
 from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
-    update_mesocycle_status, get_ten_rm, save_ten_rm
+    update_mesocycle_status, get_ten_rm, get_last_feedback_per_muscle
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
@@ -51,6 +51,56 @@ RIR_CONFIG = {
 def suggested_weight(ten_rm: float, rir: int) -> float:
     pct = RIR_CONFIG.get(rir, RIR_CONFIG[2])["pct"]
     return round(ten_rm * pct / 2.5) * 2.5
+
+def adjust_sets(planned: int, feedback: dict | None, mrv: int) -> tuple[int, str]:
+    """
+    Adjusts planned sets based on last session feedback.
+    Returns (adjusted_sets, reason).
+    Rules (RP):
+      Soreness 5  → -2 sets (zu viel Erschöpfung)
+      Soreness 4  → -1 set
+      Soreness ≤2 → +1 set (vollständig erholt)
+      Performance -2 (1) → -1 set, kein Anstieg
+      Performance -1 (2) → Plan beibehalten (kein Anstieg)
+      Performance +1 (4) → Plan wie geplant
+      Performance +2 (5) → +1 set Bonus
+    Combined effect is clamped to [1, mrv_per_session].
+    """
+    if not feedback:
+        return planned, ""
+
+    pump       = feedback.get("pump", 3)
+    soreness   = feedback.get("soreness", 3)
+    performance = feedback.get("performance", 3)  # 1–5
+
+    delta = 0
+    reasons = []
+
+    if soreness >= 5:
+        delta -= 2
+        reasons.append("Soreness 5/5 → −2")
+    elif soreness == 4:
+        delta -= 1
+        reasons.append("Soreness 4/5 → −1")
+    elif soreness <= 2:
+        delta += 1
+        reasons.append("Soreness ≤2/5 → +1")
+
+    if performance <= 1:
+        delta -= 1
+        reasons.append("Performance −2 → −1")
+    elif performance == 2:
+        # No increase — undo any positive delta from soreness
+        delta = min(delta, 0)
+        reasons.append("Performance −1 → kein Anstieg")
+    elif performance >= 5:
+        delta += 1
+        reasons.append("Performance +2 → +1")
+
+    adjusted = max(1, min(planned + delta, mrv))
+    reason = " · ".join(reasons) if reasons else ""
+    return adjusted, reason
+
 
 def recommended_exercises(sets: int) -> int:
     if sets <= 8:  return 1
@@ -194,11 +244,13 @@ with tab_new:
     session_sets = {}
     rcfg_active = RIR_CONFIG[active_rir]
 
-    # Frequency per muscle: how many days in the split train this muscle
+    # Frequency per muscle + last feedback
     mg_frequency = {}
     if split_days:
         for mg_key in session_muscles:
             mg_frequency[mg_key] = sum(1 for d_muscles in split_days.values() if mg_key in d_muscles)
+
+    last_feedback = get_last_feedback_per_muscle(meso["id"])
 
     for mg in session_muscles:
         vol = RP_VOLUMES.get(mg, {})
@@ -210,13 +262,22 @@ with tab_new:
 
         # Divide weekly volume by training frequency → sets per session
         freq = max(mg_frequency.get(mg, 1), 1)
-        target_sets = max(1, round(weekly_sets / freq))
+        planned_sets = max(1, round(weekly_sets / freq))
+        mrv_per_session = max(1, round(vol.get("MRV", 20) / freq))
+
+        # Adjust based on last session feedback
+        fb = last_feedback.get(mg)
+        target_sets, fb_reason = adjust_sets(planned_sets, fb, mrv_per_session)
 
         st.markdown(
             f"<div style='display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:4px'>"
             f"<span style='font-size:1.3rem'>{vol.get('icon','💪')}</span>"
             f"<span style='font-size:1.1rem;font-weight:700'>{mg}</span>"
-            f"<span style='color:#888;font-size:0.85rem'>Heute: {target_sets} Sets &nbsp;·&nbsp; Woche: {weekly_sets} ({freq}×) &nbsp;·&nbsp; "
+            f"<span style='color:#888;font-size:0.85rem'>"
+            f"Heute: <b style='color:white'>{target_sets}</b> Sets"
+            + (f" <span style='color:#fbbc04' title='{fb_reason}'>({'+' if target_sets > planned_sets else ''}{target_sets - planned_sets:+d} Feedback)</span>"
+               if target_sets != planned_sets and fb_reason else "")
+            + f" &nbsp;·&nbsp; Woche: {weekly_sets} ({freq}×) &nbsp;·&nbsp; "
             f"<span style='color:{rcfg_active['color']}'>{rcfg_active['label']}</span></span>"
             f"</div>",
             unsafe_allow_html=True
@@ -258,29 +319,21 @@ with tab_new:
                     key=f"nsets_{mg}_{ex_idx}", label_visibility="collapsed"
                 )
 
-                # 10RM + weight suggestion
+                # Weight suggestion from stored 10RM
                 stored_10rm = get_ten_rm(chosen_ex)
-                r1, r2 = st.columns([2, 3])
-                ten_rm_val = r1.number_input(
-                    "10RM (kg)", min_value=0.0, step=2.5,
-                    value=float(stored_10rm) if stored_10rm else 0.0,
-                    key=f"tenrm_{mg}_{ex_idx}",
-                    help="Maximales Gewicht für 10 saubere Wiederholungen"
-                )
-                if ten_rm_val > 0:
-                    if stored_10rm != ten_rm_val:
-                        save_ten_rm(chosen_ex, ten_rm_val)
-                    w_sug = suggested_weight(ten_rm_val, active_rir)
-                    r2.markdown(
+                if stored_10rm and stored_10rm > 0:
+                    w_sug = suggested_weight(stored_10rm, active_rir)
+                    st.markdown(
                         f"<div style='padding:8px;border-radius:4px;background:{rcfg_active['bg']};"
                         f"border:1px solid {rcfg_active['color']};margin-top:4px;font-size:0.85rem'>"
                         f"Vorschlag: <b style='font-size:1.1rem'>{w_sug:.1f} kg</b> "
-                        f"<span style='color:#888'>({int(rcfg_active['pct']*100)}% · {rcfg_active['label']})</span>"
+                        f"<span style='color:#888'>({int(rcfg_active['pct']*100)}% · {rcfg_active['label']} · 10RM: {stored_10rm:.1f} kg)</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
-                    w_default = suggested_weight(ten_rm_val, active_rir)
+                    w_default = w_sug
                 else:
+                    st.caption("⚙️ 10RM noch nicht hinterlegt → [Fortschritt → 10RM](3_Fortschritt)")
                     w_default = 0.0
 
                 # Set table

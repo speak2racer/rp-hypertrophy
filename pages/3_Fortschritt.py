@@ -6,7 +6,8 @@ import streamlit as st
 import pandas as pd
 from database import (
     get_mesocycles, get_sets_per_muscle_per_week, get_all_sets_for_exercise,
-    get_all_feedback_for_meso, get_workouts, get_sets
+    get_all_feedback_for_meso, get_workouts, get_sets,
+    get_ten_rm, save_ten_rm, get_all_ten_rms
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
@@ -27,7 +28,7 @@ meso = meso_options[selected_label]
 
 st.divider()
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Volumen", "💪 Stärke", "🎯 Feedback", "🔍 Deload-Analyse", "🧠 Kalibrierung"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📈 Volumen", "💪 Stärke", "🎯 Feedback", "🔍 Deload-Analyse", "🧠 Kalibrierung", "⚖️ 10RM"])
 
 # ── Tab 1: Volume per Muscle per Week ─────────────────────────────────────────
 with tab1:
@@ -308,3 +309,77 @@ with tab5:
             "Diese kalibrierten Werte werden automatisch im **Mesozyklus-Planer** "
             "für deinen nächsten Zyklus verwendet."
         )
+
+# ── Tab 6: 10RM Management ────────────────────────────────────────────────────
+with tab6:
+    st.subheader("⚖️ 10RM-Werte verwalten")
+    st.caption(
+        "Das 10RM (maximales Gewicht für 10 saubere Wiederholungen) dient als Basis für alle "
+        "Gewichtsvorschläge im Training. Trage hier deine aktuellen Werte ein."
+    )
+
+    # Collect all exercises from all muscle groups
+    all_exercises = []
+    for mg, ex_list in EXERCISES.items():
+        for ex in ex_list:
+            all_exercises.append({"muscle_group": mg, "name": ex["name"], "sfr": ex.get("sfr", "")})
+
+    # Load existing 10RMs
+    existing_rms = get_all_ten_rms()  # dict: exercise_name → weight
+
+    st.markdown("### Gewichte eintragen")
+
+    # Group by muscle group
+    mg_order = list(dict.fromkeys(e["muscle_group"] for e in all_exercises))
+    updated = {}
+
+    for mg in mg_order:
+        exercises_in_mg = [e for e in all_exercises if e["muscle_group"] == mg]
+        icon = RP_VOLUMES.get(mg, {}).get("icon", "💪")
+
+        with st.expander(f"{icon} **{mg}**", expanded=False):
+            cols = st.columns(2)
+            for i, ex in enumerate(exercises_in_mg):
+                current = existing_rms.get(ex["name"], 0.0)
+                sfr_badge = {"high": "🟢", "medium": "🟡"}.get(ex["sfr"], "")
+                val = cols[i % 2].number_input(
+                    f"{sfr_badge} {ex['name']}",
+                    min_value=0.0,
+                    step=2.5,
+                    value=float(current),
+                    key=f"rm_{ex['name']}",
+                    help="0 = noch nicht eingetragen"
+                )
+                if val != current:
+                    updated[ex["name"]] = val
+
+    if updated:
+        if st.button("💾 Speichern", type="primary"):
+            for ex_name, weight in updated.items():
+                save_ten_rm(ex_name, weight)
+            st.success(f"✅ {len(updated)} Wert(e) gespeichert.")
+            st.rerun()
+
+    st.divider()
+    st.markdown("### Aktuelle 10RM-Übersicht")
+    existing_rms = get_all_ten_rms()
+    if existing_rms:
+        rm_rows = []
+        for ex in all_exercises:
+            w = existing_rms.get(ex["name"])
+            if w and w > 0:
+                from data.rp_volumes import RP_VOLUMES as _RV
+                rm_rows.append({
+                    "Muskelgruppe": ex["muscle_group"],
+                    "Übung": ex["name"],
+                    "10RM (kg)": w,
+                    "3 RIR (87.5%)": round(w * 0.875 / 2.5) * 2.5,
+                    "2 RIR (92.5%)": round(w * 0.925 / 2.5) * 2.5,
+                    "1 RIR (97.5%)": round(w * 0.975 / 2.5) * 2.5,
+                })
+        if rm_rows:
+            st.dataframe(pd.DataFrame(rm_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("Noch keine 10RM-Werte hinterlegt.")
+    else:
+        st.info("Noch keine 10RM-Werte hinterlegt.")
