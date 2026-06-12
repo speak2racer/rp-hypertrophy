@@ -24,6 +24,52 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ── Makrozyklus-Empfehlung ────────────────────────────────────────────────────
+def _macro_recommendation(mesocycles: list) -> tuple[str, str, str]:
+    """
+    Analysiert abgeschlossene Mesos und empfiehlt den nächsten Typ.
+    Returns (recommended_type, title, explanation).
+    """
+    done = [m for m in mesocycles if m["status"] in ("completed", "active", "deload")]
+    done_sorted = sorted(done, key=lambda m: m.get("created_at", ""), reverse=True)
+
+    if not done_sorted:
+        return "hypertrophy", "💪 Empfehlung: Hypertrophie-Meso", \
+               "Starte mit einem Hypertrophie-Meso um Muskelvolumen aufzubauen und dein MEV/MRV zu kalibrieren."
+
+    # Zähle aufeinanderfolgende Hypertrophie-Mesos seit letztem Kraft-Meso
+    hyp_streak = 0
+    last_strength_idx = None
+    for i, m in enumerate(done_sorted):
+        t = m.get("meso_type") or "hypertrophy"
+        if t == "strength":
+            last_strength_idx = i
+            break
+        hyp_streak += 1
+
+    total = len(done_sorted)
+    last_type = done_sorted[0].get("meso_type") or "hypertrophy"
+
+    if last_type == "strength":
+        return "hypertrophy", "💪 Empfehlung: Hypertrophie-Meso", \
+               "Du hast gerade einen Kraft-Meso abgeschlossen. Jetzt ist der ideale Zeitpunkt für " \
+               "Hypertrophie — dein 1RM ist verbessert, nutze das für höhere Gewichte bei mehr Volumen."
+    elif hyp_streak >= 3:
+        return "strength", "🏋️ Empfehlung: Kraft-Meso", \
+               f"Du hast {hyp_streak} Hypertrophie-Mesos in Folge absolviert. " \
+               "Zeit für einen Kraft-Meso um das 1RM zu steigern und die Basis für den nächsten Aufbaublock zu legen."
+    elif hyp_streak == 2:
+        return "strength", "🏋️ Empfehlung: Kraft-Meso (optional)", \
+               "Nach 2 Hypertrophie-Mesos wäre ein Kraft-Meso sinnvoll. " \
+               "Du kannst noch einen dritten Hypertrophie-Meso machen, spätestens danach solltest du jedoch Kraft trainieren."
+    else:
+        return "hypertrophy", "💪 Empfehlung: Hypertrophie-Meso", \
+               f"Du bist bei {hyp_streak} Hypertrophie-Meso{'s' if hyp_streak != 1 else ''} seit dem letzten Kraft-Block. " \
+               "Noch 1–2 weitere Hypertrophie-Mesos sind sinnvoll bevor du wieder Kraft trainierst."
+
+all_mesos = get_mesocycles(user_id=get_effective_user_id())
+rec_type, rec_title, rec_text = _macro_recommendation(all_mesos)
+
 # ── Step 1: Basic Settings ────────────────────────────────────────────────────
 st.subheader("1. Grundeinstellungen")
 col1, col2, col3 = st.columns(3)
@@ -36,12 +82,29 @@ with col3:
 
 st.caption(f"Deload-Woche: Woche {weeks + 1} | Gesamtdauer: {weeks + 1} Wochen")
 
+# Makrozyklus-Empfehlung anzeigen
+with st.container(border=True):
+    st.markdown(f"**{rec_title}**")
+    st.caption(rec_text)
+    # Timeline der letzten Mesos
+    done_mesos = [m for m in all_mesos if m["status"] in ("completed", "active", "deload")]
+    if done_mesos:
+        timeline = []
+        for m in sorted(done_mesos, key=lambda x: x.get("created_at", ""))[-6:]:
+            t = m.get("meso_type") or "hypertrophy"
+            icon = "💪" if t == "hypertrophy" else "🏋️"
+            timeline.append(f"{icon} {m['name']}")
+        timeline.append(f"**→ Neu**")
+        st.caption("  ›  ".join(timeline))
+
+_default_type_idx = 0 if rec_type == "hypertrophy" else 1
 meso_type = st.radio(
     "Mesozyklus-Typ",
     options=["hypertrophy", "strength"],
     format_func=lambda x: "💪 Hypertrophie  —  hohes Volumen, 8–12 Wdh., MEV→MRV" if x == "hypertrophy"
                           else "🏋️ Kraft  —  schwere Gewichte, 3–6 Wdh., Volumen bei MEV",
     horizontal=True,
+    index=_default_type_idx,
     key="meso_type_select",
 )
 if meso_type == "strength":
@@ -253,7 +316,7 @@ col4.metric("Peakvolumen", f"{total_peak} Sets/Wo.")
 st.divider()
 
 if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name):
-    for m in get_mesocycles(user_id=get_effective_user_id()):
+    for m in all_mesos:
         if m["status"] == "active":
             update_mesocycle_status(m["id"], "completed")
 
