@@ -203,7 +203,7 @@ with tab4:
 with tab5:
     st.subheader("🧠 Kalibrierungs-Bericht")
     st.markdown(
-        "MEV, MAV und MRV aus deinen Feedback-Daten — oder RP-Literaturwerte als Ausgangspunkt."
+        "MEV, MAV und MRV aus deinen Feedback-Daten — oder Literaturwerte als Ausgangspunkt."
     )
     st.markdown("""
 | Kürzel | Bedeutung | Beschreibung |

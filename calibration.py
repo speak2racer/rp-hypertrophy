@@ -195,8 +195,8 @@ def get_calibrated_volumes(muscle_group: str, exclude_meso_id: int = None) -> di
         "source": "literature",
         "confidence": "low",
         "explanations": {
-            "MEV": "Kein vorheriger Zyklus — RP-Literaturwert.",
-            "MAV": "Kein vorheriger Zyklus — RP-Literaturwert.",
-            "MRV": "Kein vorheriger Zyklus — RP-Literaturwert.",
+            "MEV": "Kein vorheriger Zyklus — Literaturwert.",
+            "MAV": "Kein vorheriger Zyklus — Literaturwert.",
+            "MRV": "Kein vorheriger Zyklus — Literaturwert.",
         },
     }

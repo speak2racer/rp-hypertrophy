@@ -20,7 +20,7 @@ render_sidebar_user()
 st.markdown("""
 <div class='page-header'>
     <p class='page-title'>📅 Mesozyklus-Planer</p>
-    <p class='page-sub'>Plane deinen nächsten Hypertrophie-Zyklus nach RP-Prinzipien</p>
+    <p class='page-sub'>Plane deinen nächsten Hypertrophie-Zyklus</p>
 </div>
 """, unsafe_allow_html=True)
 

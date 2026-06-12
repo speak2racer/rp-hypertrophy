@@ -22,7 +22,7 @@ init_auth()
 user = require_auth()
 render_sidebar_user()
 
-# ── RIR logic (RP: 3→3→2→2→1 for 5 weeks) ───────────────────────────────────
+# ── RIR logic (3→3→2→2→1 for 5 weeks) ──────────────────────────────────────
 
 def week_rir(week: int, total_weeks: int) -> int:
     """Single RIR target per week. Blocks: first third=3, middle=2, last third=1."""

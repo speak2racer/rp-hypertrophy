@@ -11,7 +11,7 @@ from styles import inject_css
 from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_token, init_auth, get_effective_user_id
 
 st.set_page_config(
-    page_title="RP Hypertrophy",
+    page_title="Spischeks Hypertrophie Coaching",
     page_icon="🏋️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -26,8 +26,8 @@ if not init_auth():
     <div style='max-width:400px;margin:60px auto'>
         <div style='text-align:center;margin-bottom:32px'>
             <div style='font-size:3rem'>🏋️</div>
-            <div style='font-size:1.6rem;font-weight:700;color:#f0f0f0;margin-top:8px'>RP Hypertrophy</div>
-            <div style='font-size:0.85rem;color:#555;margin-top:4px'>Renaissance Periodization Training</div>
+            <div style='font-size:1.6rem;font-weight:700;color:#f0f0f0;margin-top:8px'>Spischeks Hypertrophie Coaching</div>
+            <div style='font-size:0.85rem;color:#555;margin-top:4px'>Mesozyklus-basiertes Hypertrophie-Training</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -77,8 +77,8 @@ completed = [m for m in mesocycles if m["status"] == "completed"]
 
 st.markdown("""
 <div class='page-header'>
-    <p class='page-title'>RP Hypertrophy</p>
-    <p class='page-sub'>Renaissance Periodization — Mesozyklus-basiertes Hypertrophie-Training</p>
+    <p class='page-title'>Spischeks Hypertrophie Coaching</p>
+    <p class='page-sub'>Mesozyklus-basiertes Hypertrophie-Training</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -142,10 +142,10 @@ else:
         padding:40px;text-align:center;margin:20px 0'>
             <div style='font-size:2.5rem'>👋</div>
             <div style='font-size:1.2rem;font-weight:700;color:#f0f0f0;margin:12px 0 6px'>
-                Willkommen bei RP Hypertrophy!
+                Willkommen bei Spischeks Hypertrophie Coaching!
             </div>
             <div style='font-size:0.88rem;color:#888;margin-bottom:8px'>
-                Plane und tracke dein Training nach Renaissance Periodization Prinzipien.
+                Plane und tracke dein Training nach wissenschaftlichen Hypertrophie-Prinzipien.
             </div>
         </div>
         """, unsafe_allow_html=True)

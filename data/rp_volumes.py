@@ -1,5 +1,5 @@
-# RP Volume Landmarks per muscle group (sets per week)
-# Source: Renaissance Periodization Hypertrophy methodology
+# Volume Landmarks per muscle group (sets per week)
+# Based on hypertrophy research literature
 # MEV = Minimum Effective Volume, MAV = Maximum Adaptive Volume, MRV = Maximum Recoverable Volume
 
 RP_VOLUMES = {
