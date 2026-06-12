@@ -8,43 +8,63 @@ from datetime import date
 from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
-    update_mesocycle_status, get_ten_rm, save_ten_rm, get_all_ten_rms
+    update_mesocycle_status, get_ten_rm, save_ten_rm
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
 
 st.set_page_config(page_title="Training", page_icon="🏋️", layout="wide")
-st.title("🏋️ Training")
 
-# ── RIR target per week (RP methodology) ─────────────────────────────────────
-# Week 1 → easiest (body adapting to exercises), last week → hardest
+# ── CSS ───────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+.set-row { display:flex; gap:8px; align-items:center; padding:4px 0; border-bottom:1px solid #333; }
+.week-badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
+.rir-banner { padding:10px 16px; border-radius:8px; font-size:1rem; font-weight:600; margin-bottom:8px; }
+div[data-testid="stNumberInput"] input { text-align:center; }
+</style>
+""", unsafe_allow_html=True)
 
-def get_rir_target(week: int, total_weeks: int, is_deload: bool) -> dict:
-    """Returns target RIR range and description for a given week."""
-    if is_deload:
-        return {"low": 4, "high": 5, "label": "4–5 RIR", "desc": "Deload — sehr leicht", "color": "info"}
+# ── RIR logic (RP: 3→3→2→2→1 for 5 weeks) ───────────────────────────────────
 
-    # Linearly progress from 3-4 RIR (week 1) down to 0-1 RIR (last week)
-    # Normalised position in the meso (0.0 = first week, 1.0 = last week)
-    pos = (week - 1) / max(total_weeks - 1, 1)
+def week_rir(week: int, total_weeks: int) -> int:
+    """Single RIR target per week. Blocks: first third=3, middle=2, last third=1."""
+    if week > total_weeks:
+        return 4  # deload
+    import math
+    b1 = math.ceil(total_weeks / 3)
+    b2 = math.ceil(2 * total_weeks / 3)
+    if week <= b1:
+        return 3
+    elif week <= b2:
+        return 2
+    return 1
 
-    if pos <= 0.25:
-        return {"low": 3, "high": 4, "label": "3–4 RIR", "desc": "Eingewöhnung — leichter Einstieg", "color": "info"}
-    elif pos <= 0.5:
-        return {"low": 2, "high": 3, "label": "2–3 RIR", "desc": "Aufbauend — moderate Intensität", "color": "success"}
-    elif pos <= 0.75:
-        return {"low": 1, "high": 2, "label": "1–2 RIR", "desc": "Fordernd — nah ans Versagen", "color": "warning"}
-    else:
-        return {"low": 0, "high": 1, "label": "0–1 RIR", "desc": "Maximale Anstrengung — letzter Zyklusteil", "color": "error"}
+RIR_CONFIG = {
+    4: {"label": "Deload",  "pct": 0.875, "color": "#1a73e8", "bg": "#0d2a4a"},
+    3: {"label": "3 RIR",   "pct": 0.875, "color": "#34a853", "bg": "#0d2a17"},
+    2: {"label": "2 RIR",   "pct": 0.925, "color": "#fbbc04", "bg": "#2a2000"},
+    1: {"label": "1 RIR",   "pct": 0.975, "color": "#ea4335", "bg": "#2a0d0a"},
+    0: {"label": "0 RIR",   "pct": 1.0,   "color": "#ea4335", "bg": "#2a0d0a"},
+}
 
+def suggested_weight(ten_rm: float, rir: int) -> float:
+    pct = RIR_CONFIG.get(rir, RIR_CONFIG[2])["pct"]
+    return round(ten_rm * pct / 2.5) * 2.5
+
+def recommended_exercises(sets: int) -> int:
+    if sets <= 8:  return 1
+    if sets <= 14: return 2
+    return 3
 
 # ── Active mesocycle ──────────────────────────────────────────────────────────
 mesocycles = get_mesocycles()
 active = [m for m in mesocycles if m["status"] in ("active", "deload")]
 
 if not active:
-    st.warning("Kein aktiver Mesozyklus. Bitte zuerst einen Mesozyklus erstellen.")
-    if st.button("➕ Mesozyklus erstellen"):
+    st.title("🏋️ Training")
+    st.warning("Kein aktiver Mesozyklus.")
+    if st.button("➕ Mesozyklus erstellen", type="primary"):
         st.switch_page("pages/1_Mesozyklus.py")
     st.stop()
 
@@ -57,243 +77,231 @@ muscle_configs = get_muscle_configs(meso["id"])
 split_days: dict = meso.get("split_days") or {}
 split_order: list = meso.get("split_order") or list(split_days.keys())
 
-# ── Week banner ───────────────────────────────────────────────────────────────
-if is_deload:
-    st.info("🔵 **Deload-Woche** — Reduziere Volumen um ~50%, Gewicht um ~30%")
-    if st.button("Deload abschließen & Zyklus beenden"):
-        update_mesocycle_status(meso["id"], "completed")
-        st.rerun()
-    rir = get_rir_target(current_week, meso["weeks"], is_deload=True)
-else:
-    rir = get_rir_target(current_week, meso["weeks"], is_deload=False)
+# ── Header ────────────────────────────────────────────────────────────────────
+display_week = current_week if not is_deload else meso["weeks"] + 1
+rir = week_rir(current_week, meso["weeks"]) if not is_deload else 4
+rcfg = RIR_CONFIG[rir]
 
-# ── RIR week overview strip ───────────────────────────────────────────────────
-st.markdown(f"**{meso['name']}** · Split: {meso.get('split_template') or 'Manuell'}")
+col_title, col_meta = st.columns([3, 2])
+col_title.title("🏋️ Training")
+with col_meta:
+    st.markdown(f"""
+    <div style='text-align:right; padding-top:12px'>
+        <span style='font-size:0.85rem; color:#888'>{meso['name']} · {meso.get('split_template','')}</span><br>
+        <span style='font-size:1.1rem; font-weight:700'>
+            Woche {display_week}/{meso['weeks']}
+            &nbsp;
+            <span style='color:{rcfg["color"]}'>● {rcfg["label"]}</span>
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
-week_cols = st.columns(meso["weeks"] + 1)
-for w in range(1, meso["weeks"] + 1):
-    r = get_rir_target(w, meso["weeks"], is_deload=False)
-    is_now = (w == current_week and not is_deload)
-    label = f"**W{w}**\n{r['label']}" if is_now else f"W{w}\n{r['label']}"
-    week_cols[w - 1].markdown(
-        f"<div style='text-align:center; padding:6px 2px; border-radius:6px; "
-        f"background:{'#1f4e79' if is_now else 'transparent'}; "
-        f"color:{'white' if is_now else 'inherit'}; font-size:0.8em'>{label}</div>",
+# Week progress bar
+if not is_deload:
+    cols_w = st.columns(meso["weeks"] + 1)
+    for w in range(1, meso["weeks"] + 1):
+        r = week_rir(w, meso["weeks"])
+        rc = RIR_CONFIG[r]
+        is_now = w == current_week
+        cols_w[w-1].markdown(
+            f"<div style='text-align:center;padding:5px 2px;border-radius:6px;"
+            f"background:{'#1f3a5f' if is_now else 'transparent'};"
+            f"border:{'2px solid ' + rc['color'] if is_now else '1px solid #333'};"
+            f"font-size:0.75rem'>"
+            f"<b>W{w}</b><br><span style='color:{rc['color']}'>{rc['label']}</span></div>",
+            unsafe_allow_html=True
+        )
+    cols_w[meso["weeks"]].markdown(
+        "<div style='text-align:center;padding:5px 2px;border-radius:6px;"
+        "border:1px solid #333;font-size:0.75rem'>"
+        "<b>DL</b><br><span style='color:#1a73e8'>Deload</span></div>",
         unsafe_allow_html=True
     )
-# Deload column
-dl_r = get_rir_target(0, meso["weeks"], is_deload=True)
-week_cols[meso["weeks"]].markdown(
-    f"<div style='text-align:center; padding:6px 2px; border-radius:6px; "
-    f"background:{'#1f4e79' if is_deload else 'transparent'}; "
-    f"color:{'white' if is_deload else 'inherit'}; font-size:0.8em'>"
-    f"{'**' if is_deload else ''}Deload\n{dl_r['label']}{'**' if is_deload else ''}</div>",
-    unsafe_allow_html=True
-)
+else:
+    st.info("🔵 **Deload** — 2 Sets, ~87% vom 10RM, ~halbe Wdh.")
+    if st.button("Deload abschließen"):
+        update_mesocycle_status(meso["id"], "completed")
+        st.rerun()
 
-# Current week RIR callout
-getattr(st, rir["color"])(
-    f"**Ziel diese Woche (Woche {current_week if not is_deload else 'Deload'}): "
-    f"{rir['label']}** — {rir['desc']}"
+# RIR banner
+st.markdown(
+    f"<div style='background:{rcfg['bg']};border-left:4px solid {rcfg['color']};"
+    f"padding:8px 14px;border-radius:4px;margin:8px 0;font-size:0.9rem'>"
+    f"<b style='color:{rcfg['color']}'>{rcfg['label']}</b> — "
+    f"Stoppe jeden Satz wenn du noch <b>{rir} Wdh.</b> in Reserve hast. "
+    f"Gewichtszone: <b>{int(rcfg['pct']*100)}% vom 10RM</b></div>",
+    unsafe_allow_html=True
 )
 
 st.divider()
 
-tab1, tab2 = st.tabs(["▶ Neue Session", "📋 Session-Verlauf"])
+tab_new, tab_history = st.tabs(["▶ Neue Session", "📋 Verlauf"])
 
-with tab1:
-    st.subheader("Neue Trainingseinheit")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        workout_date = st.date_input("Datum", value=date.today())
-    with col2:
-        week_num = st.number_input(
-            "Woche", min_value=1, max_value=meso["weeks"] + 1, value=current_week
-        )
-        # Recalculate RIR if user manually changes week
-        rir = get_rir_target(week_num, meso["weeks"], is_deload=(week_num > meso["weeks"]))
+with tab_new:
+    # ── Session meta ──────────────────────────────────────────────────────────
+    c1, c2 = st.columns(2)
+    workout_date = c1.date_input("Datum", value=date.today())
+    week_num = c2.number_input("Woche", min_value=1,
+                               max_value=meso["weeks"] + 1, value=current_week)
+    active_rir = week_rir(week_num, meso["weeks"]) if week_num <= meso["weeks"] else 4
 
     # ── Day selector ──────────────────────────────────────────────────────────
     if split_days:
-        st.markdown("**Welcher Trainingstag?**")
-        day_cols = st.columns(min(len(split_days), 4))
+        st.markdown("##### Trainingstag")
+        n = min(len(split_days), 6)
+        day_cols = st.columns(n)
         selected_day = st.session_state.get("selected_training_day")
 
         for i, day_name in enumerate(split_order):
             muscles_in_day = split_days.get(day_name, [])
-            icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in muscles_in_day)
-            is_selected = selected_day == day_name
-            with day_cols[i % len(day_cols)]:
+            icons = "".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in muscles_in_day)
+            is_sel = selected_day == day_name
+            rc_day = RIR_CONFIG[active_rir]
+            with day_cols[i % n]:
+                btn_style = f"background:{rc_day['bg']};border:2px solid {rc_day['color']}" if is_sel else ""
                 if st.button(
-                    f"{'✅ ' if is_selected else ''}{day_name}\n{icons}",
-                    key=f"day_{day_name}", use_container_width=True,
-                    type="primary" if is_selected else "secondary"
+                    f"{'✓ ' if is_sel else ''}{day_name}\n{icons}",
+                    key=f"day_{day_name}",
+                    use_container_width=True,
+                    type="primary" if is_sel else "secondary"
                 ):
                     st.session_state["selected_training_day"] = day_name
+                    # clear ex counts when day changes
+                    for k in list(st.session_state.keys()):
+                        if k.startswith("ex_count_") or k.startswith("ex_count_prev_"):
+                            del st.session_state[k]
                     st.rerun()
 
         selected_day = st.session_state.get("selected_training_day")
         if not selected_day or selected_day not in split_days:
-            st.info("Wähle einen Trainingstag um fortzufahren.")
+            st.info("Wähle einen Trainingstag.")
             st.stop()
-
         session_muscles = split_days[selected_day]
-        st.success(f"**{selected_day}**: {', '.join(session_muscles)}")
+
     else:
-        st.markdown("**Welche Muskelgruppen trainierst du heute?**")
         session_muscles = []
-        cols = st.columns(5)
-        for i, mg in enumerate(meso["muscle_groups"]):
+        for mg in meso["muscle_groups"]:
             icon = RP_VOLUMES.get(mg, {}).get("icon", "💪")
-            if cols[i % 5].checkbox(f"{icon} {mg}", key=f"sess_{mg}"):
+            if st.checkbox(f"{icon} {mg}", key=f"sess_{mg}"):
                 session_muscles.append(mg)
         if not session_muscles:
-            st.info("Wähle die Muskelgruppen für die heutige Einheit.")
+            st.info("Wähle Muskelgruppen.")
             st.stop()
 
     st.divider()
 
-    # ── Set logging per muscle ────────────────────────────────────────────────
-
-    def suggested_weight(ten_rm: float, rir_low: int, rir_high: int) -> float:
-        """Weight suggestion based on 10RM and target RIR range.
-        Each RIR ≈ 2.5% of 10RM. At 0 RIR = 100% of 10RM."""
-        rir_mid = (rir_low + rir_high) / 2
-        raw = ten_rm * (1 - rir_mid * 0.025)
-        # Round to nearest 2.5 kg
-        return round(raw / 2.5) * 2.5
-
-    def recommended_exercises(sets: int) -> tuple[int, str]:
-        """Returns (count, reason) based on weekly set volume."""
-        if sets <= 8:
-            return 1, "≤8 Sets — eine Übung reicht"
-        elif sets <= 14:
-            return 2, "8–14 Sets — 2 Übungen für bessere Qualität"
-        else:
-            return 3, ">14 Sets — 2–3 Übungen, um Erschöpfung zu verteilen"
-
+    # ── Exercise blocks ───────────────────────────────────────────────────────
     session_sets = {}
+    rcfg_active = RIR_CONFIG[active_rir]
 
     for mg in session_muscles:
         vol = RP_VOLUMES.get(mg, {})
         cfg = muscle_configs.get(mg, {})
         exercises = cfg.get("exercises", [e["name"] for e in EXERCISES.get(mg, [])][:2])
-
         start_sets = cfg.get("start_sets", vol.get("MEV", 8))
-        deload_sets = max(vol.get("MEV", 6) - 2, 2)
-        if week_num > meso["weeks"]:
-            target_sets = deload_sets
-        else:
-            target_sets = min(start_sets + (week_num - 1) * 2, vol.get("MRV", 20))
+        target_sets = (max(vol.get("MEV", 6) - 2, 2) if week_num > meso["weeks"]
+                       else min(start_sets + (week_num - 1) * 2, vol.get("MRV", 20)))
 
-        with st.expander(
-            f"{vol.get('icon', '💪')} **{mg}** — Ziel: {target_sets} Sets · RIR {rir['label']}",
-            expanded=True
-        ):
-            st.caption(
-                f"Führe jeden Arbeitssatz so aus, dass du am Ende noch **{rir['low']}–{rir['high']} Wdh. "
-                f"in Reserve** hättest. {rir['desc']}."
-            )
+        st.markdown(
+            f"<div style='display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:4px'>"
+            f"<span style='font-size:1.3rem'>{vol.get('icon','💪')}</span>"
+            f"<span style='font-size:1.1rem;font-weight:700'>{mg}</span>"
+            f"<span style='color:#888;font-size:0.85rem'>Ziel: {target_sets} Sets &nbsp;·&nbsp; "
+            f"<span style='color:{rcfg_active['color']}'>{rcfg_active['label']}</span></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
-            all_options = [e["name"] for e in EXERCISES.get(mg, [])]
+        all_options = [e["name"] for e in EXERCISES.get(mg, [])]
+        rec_ex = recommended_exercises(target_sets)
 
-            # ── Per-exercise blocks ───────────────────────────────────────────
-            rec_count, rec_reason = recommended_exercises(target_sets)
-            st.info(f"💡 Empfehlung: **{rec_count} Übung{'en' if rec_count > 1 else ''}** — {rec_reason}")
+        ex_count_key = f"ex_count_{mg}"
+        prev_count_key = f"ex_count_prev_{mg}"
+        if ex_count_key not in st.session_state:
+            st.session_state[ex_count_key] = rec_ex
+        if st.session_state.get(prev_count_key) != st.session_state[ex_count_key]:
+            for i in range(st.session_state[ex_count_key] + 2):
+                st.session_state.pop(f"nsets_{mg}_{i}", None)
+            st.session_state[prev_count_key] = st.session_state[ex_count_key]
 
-            ex_count_key = f"ex_count_{mg}"
-            prev_count_key = f"ex_count_prev_{mg}"
-            if ex_count_key not in st.session_state:
-                st.session_state[ex_count_key] = rec_count
+        mg_sets = []
+        sets_logged = 0
 
-            # If exercise count changed, reset all nsets so suggested values apply cleanly
-            if st.session_state.get(prev_count_key) != st.session_state[ex_count_key]:
-                for i in range(st.session_state[ex_count_key] + 2):
-                    st.session_state.pop(f"nsets_{mg}_{i}", None)
-                st.session_state[prev_count_key] = st.session_state[ex_count_key]
-
-            mg_sets = []
-            sets_logged = 0
-
-            for ex_idx in range(st.session_state[ex_count_key]):
-                st.markdown(f"**Übung {ex_idx + 1}**")
-                ec = st.columns([4, 1])
-
-                default_ex = exercises[ex_idx] if ex_idx < len(exercises) else exercises[0] if exercises else all_options[0]
-                chosen_ex = ec[0].selectbox(
-                    "Übung",
-                    options=all_options,
+        for ex_idx in range(st.session_state[ex_count_key]):
+            with st.container(border=True):
+                # Exercise selector + sets count
+                h1, h2, h3 = st.columns([5, 1, 1])
+                default_ex = (exercises[ex_idx] if ex_idx < len(exercises)
+                              else exercises[0] if exercises else all_options[0] if all_options else "")
+                chosen_ex = h1.selectbox(
+                    "Übung", options=all_options,
                     index=all_options.index(default_ex) if default_ex in all_options else 0,
-                    key=f"ex_sel_{mg}_{ex_idx}",
-                    label_visibility="collapsed"
+                    key=f"ex_sel_{mg}_{ex_idx}", label_visibility="collapsed"
                 )
 
-                # 10RM input + weight suggestion
+                total_ex = st.session_state[ex_count_key]
+                base = target_sets // total_ex
+                suggested_sets = base + (target_sets % total_ex) if ex_idx == total_ex - 1 else base
+                num_sets = h2.number_input(
+                    "Sets", min_value=1, max_value=target_sets + 6,
+                    value=max(1, suggested_sets),
+                    key=f"nsets_{mg}_{ex_idx}", label_visibility="collapsed"
+                )
+
+                # 10RM + weight suggestion
                 stored_10rm = get_ten_rm(chosen_ex)
-                trm_col1, trm_col2 = st.columns([2, 3])
-                ten_rm_val = trm_col1.number_input(
-                    "10RM (kg)",
-                    min_value=0.0, step=2.5,
+                r1, r2 = st.columns([2, 3])
+                ten_rm_val = r1.number_input(
+                    "10RM (kg)", min_value=0.0, step=2.5,
                     value=float(stored_10rm) if stored_10rm else 0.0,
                     key=f"tenrm_{mg}_{ex_idx}",
-                    help="Dein maximales Gewicht für 10 saubere Wiederholungen"
+                    help="Maximales Gewicht für 10 saubere Wiederholungen"
                 )
                 if ten_rm_val > 0:
                     if stored_10rm != ten_rm_val:
                         save_ten_rm(chosen_ex, ten_rm_val)
-                    w_suggested = suggested_weight(ten_rm_val, rir["low"], rir["high"])
-                    trm_col2.success(
-                        f"Vorgeschlagenes Gewicht diese Woche: **{w_suggested:.1f} kg** "
-                        f"({100 - (rir['low'] + rir['high']) / 2 * 2.5:.0f}% vom 10RM · {rir['label']})"
+                    w_sug = suggested_weight(ten_rm_val, active_rir)
+                    r2.markdown(
+                        f"<div style='padding:8px;border-radius:4px;background:{rcfg_active['bg']};"
+                        f"border:1px solid {rcfg_active['color']};margin-top:4px;font-size:0.85rem'>"
+                        f"Vorschlag: <b style='font-size:1.1rem'>{w_sug:.1f} kg</b> "
+                        f"<span style='color:#888'>({int(rcfg_active['pct']*100)}% · {rcfg_active['label']})</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
                     )
+                    w_default = suggested_weight(ten_rm_val, active_rir)
+                else:
+                    w_default = 0.0
 
-                # Split target sets evenly across all exercise blocks
-                total_ex = st.session_state[ex_count_key]
-                base = target_sets // total_ex
-                # last exercise gets the remainder
-                suggested = base + (target_sets % total_ex) if ex_idx == total_ex - 1 else base
-                suggested = max(1, suggested)
-
-                num_sets = ec[1].number_input(
-                    "Sets",
-                    min_value=1, max_value=target_sets + 4,
-                    value=suggested,
-                    key=f"nsets_{mg}_{ex_idx}",
-                    label_visibility="collapsed"
+                # Set table
+                st.markdown(
+                    f"<div style='display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:4px;"
+                    f"padding:4px 0;color:#888;font-size:0.75rem;font-weight:600'>"
+                    f"<div>#</div><div>Gewicht kg</div><div>Wdh.</div>"
+                    f"<div>RIR <span style='color:{rcfg_active['color']}'>(Ziel: {active_rir})</span></div>"
+                    f"</div>",
+                    unsafe_allow_html=True
                 )
-
-                hc = st.columns([1, 2, 2, 3])
-                hc[0].caption("Set")
-                hc[1].caption("Gewicht (kg)")
-                hc[2].caption("Wdh.")
-                hc[3].caption(f"RIR (Ziel: {rir['label']})")
 
                 global_set = sets_logged + 1
                 for s in range(1, int(num_sets) + 1):
-                    sc = st.columns([1, 2, 2, 3])
-                    sc[0].markdown(f"**{global_set}**")
-                    w_default = suggested_weight(ten_rm_val, rir["low"], rir["high"]) if ten_rm_val > 0 else 0.0
+                    sc = st.columns([1, 3, 3, 3])
+                    sc[0].markdown(f"<div style='padding-top:8px;color:#888'>{global_set}</div>",
+                                   unsafe_allow_html=True)
                     weight = sc[1].number_input(
-                        "", min_value=0.0, step=2.5,
-                        value=w_default,
+                        "", min_value=0.0, step=2.5, value=w_default,
                         key=f"w_{mg}_{ex_idx}_{s}", label_visibility="collapsed"
                     )
                     reps = sc[2].number_input(
                         "", min_value=1, max_value=50, value=10,
                         key=f"r_{mg}_{ex_idx}_{s}", label_visibility="collapsed"
                     )
-                    rir_actual = sc[3].select_slider(
+                    rir_actual = sc[3].selectbox(
                         "", options=[0, 1, 2, 3, 4, 5, 6],
-                        value=rir["low"],
-                        format_func=lambda x: f"{x} RIR",
+                        index=active_rir,
+                        format_func=lambda x: f"{x} RIR{'  ⬆️' if x > active_rir + 1 else ('  ⬇️' if x < active_rir - 1 else '')}",
                         key=f"rir_{mg}_{ex_idx}_{s}", label_visibility="collapsed"
                     )
-                    if rir_actual > rir["high"] + 1:
-                        sc[3].caption("⬆️ zu leicht")
-                    elif rir_actual < rir["low"] - 1:
-                        sc[3].caption("⬇️ zu schwer")
-
                     mg_sets.append({
                         "exercise": chosen_ex, "set": global_set,
                         "weight": weight, "reps": reps, "rir": rir_actual
@@ -302,96 +310,100 @@ with tab1:
 
                 sets_logged += int(num_sets)
 
+                # Remove exercise button (if more than 1)
                 if st.session_state[ex_count_key] > 1:
-                    if st.button(f"✕ Übung {ex_idx + 1} entfernen", key=f"rem_ex_{mg}_{ex_idx}"):
-                        st.session_state[ex_count_key] = max(1, st.session_state[ex_count_key] - 1)
+                    if h3.button("✕", key=f"rem_ex_{mg}_{ex_idx}",
+                                 help="Übung entfernen"):
+                        st.session_state[ex_count_key] -= 1
                         st.rerun()
 
-                if ex_idx < st.session_state[ex_count_key] - 1:
-                    st.divider()
+        # Sets indicator + add exercise
+        indicator_col, btn_col = st.columns([3, 2])
+        diff = sets_logged - target_sets
+        if diff == 0:
+            indicator_col.markdown(f"<span style='color:#34a853'>✓ {sets_logged} Sets</span>",
+                                   unsafe_allow_html=True)
+        elif diff < 0:
+            indicator_col.markdown(
+                f"<span style='color:#fbbc04'>{sets_logged}/{target_sets} Sets "
+                f"({diff} unter Ziel)</span>", unsafe_allow_html=True)
+        else:
+            indicator_col.markdown(
+                f"<span style='color:#ea4335'>{sets_logged}/{target_sets} Sets "
+                f"(+{diff} über Ziel)</span>", unsafe_allow_html=True)
 
-            # Total sets indicator
-            zone_color = "🟢" if sets_logged == target_sets else ("🟡" if abs(sets_logged - target_sets) <= 2 else "🔴")
-            st.caption(f"{zone_color} {sets_logged} / {target_sets} Ziel-Sets")
+        if btn_col.button(f"➕ Übung", key=f"add_ex_{mg}", use_container_width=True):
+            st.session_state[ex_count_key] += 1
+            st.rerun()
 
-            if st.button(f"➕ Übung hinzufügen ({mg})", key=f"add_ex_{mg}"):
-                st.session_state[ex_count_key] += 1
-                st.rerun()
+        session_sets[mg] = mg_sets
 
-            session_sets[mg] = mg_sets
-
-            st.markdown("**Session-Feedback**")
+        # Compact feedback
+        with st.expander("Feedback nach letztem Set", expanded=False):
             fc = st.columns(3)
             pump = fc[0].slider("Pump 💉", 1, 5, 3, key=f"pump_{mg}")
             soreness = fc[1].slider("Soreness 😣", 1, 5, 3, key=f"sor_{mg}")
-            performance = fc[2].select_slider(
+            perf = fc[2].select_slider(
                 "Performance",
-                options=["Viel schlechter", "Schlechter", "Gleich", "Besser", "Viel besser"],
-                value="Gleich", key=f"perf_{mg}"
+                options=["–2", "–1", "=", "+1", "+2"],
+                value="=", key=f"perf_{mg}"
             )
-            session_sets[mg + "__feedback"] = {
-                "pump": pump, "soreness": soreness, "performance": performance
-            }
+        session_sets[mg + "__feedback"] = {"pump": pump, "soreness": soreness, "performance": perf}
 
     st.divider()
-    notes = st.text_area("Session-Notizen", placeholder="Wie war das Training insgesamt?")
+    notes = st.text_area("Notizen", placeholder="Wie war die Session?", label_visibility="collapsed")
 
-    if st.button("💾 Session speichern", type="primary"):
+    if st.button("💾 Session speichern", type="primary", use_container_width=True):
         workout_id = create_workout(meso["id"], workout_date, week_num, notes)
-        perf_map = {"Viel schlechter": 1, "Schlechter": 2, "Gleich": 3, "Besser": 4, "Viel besser": 5}
-
+        perf_map = {"–2": 1, "–1": 2, "=": 3, "+1": 4, "+2": 5}
         for mg in session_muscles:
             for s_data in session_sets.get(mg, []):
-                # Store RIR in the rpe column for backwards compatibility
                 save_set(workout_id, mg, s_data["exercise"], s_data["set"],
                          s_data["weight"], s_data["reps"], s_data["rir"])
             fb = session_sets.get(mg + "__feedback", {})
             if fb:
                 save_feedback(workout_id, mg, fb["pump"], fb["soreness"],
                               perf_map.get(fb["performance"], 3), notes)
-
-        if "selected_training_day" in st.session_state:
-            del st.session_state["selected_training_day"]
-
-        st.success("✅ Session gespeichert!")
+        for k in list(st.session_state.keys()):
+            if k.startswith("ex_count") or k == "selected_training_day":
+                del st.session_state[k]
+        st.success("✅ Gespeichert!")
         st.rerun()
 
-# ── Workout History ───────────────────────────────────────────────────────────
-with tab2:
-    st.subheader("Bisherige Sessions")
+# ── History tab ───────────────────────────────────────────────────────────────
+with tab_history:
     workouts = get_workouts(meso["id"])
-
     if not workouts:
-        st.info("Noch keine Sessions für diesen Mesozyklus.")
+        st.info("Noch keine Sessions.")
     else:
         for w in workouts:
-            w_rir = get_rir_target(w["week_number"], meso["weeks"],
-                                   is_deload=(w["week_number"] > meso["weeks"]))
+            w_rir = week_rir(w["week_number"], meso["weeks"])
+            rc = RIR_CONFIG.get(w_rir, RIR_CONFIG[2])
             with st.expander(
-                f"📅 {w['date']} — Woche {w['week_number']} · Ziel war {w_rir['label']}"
+                f"📅 {w['date']} · Woche {w['week_number']} · "
+                f"{rc['label']}"
             ):
                 sets = get_sets(w["id"])
                 if sets:
                     df = pd.DataFrame(sets)[["muscle_group", "exercise", "set_number", "weight", "reps", "rpe"]]
-                    df.columns = ["Muskelgruppe", "Übung", "Set", "Gewicht", "Wdh.", "RIR"]
+                    df.columns = ["Muskel", "Übung", "Set", "kg", "Wdh.", "RIR"]
                     st.dataframe(df, use_container_width=True, hide_index=True)
-
                 for fb in get_feedback(w["id"]):
-                    perf_labels = {1: "Viel schlechter", 2: "Schlechter", 3: "Gleich",
-                                   4: "Besser", 5: "Viel besser"}
+                    perf_l = {1: "–2", 2: "–1", 3: "=", 4: "+1", 5: "+2"}
                     st.caption(
-                        f"**{fb['muscle_group']}**: Pump {fb['pump']}/5 | "
-                        f"Soreness {fb['soreness']}/5 | Performance: {perf_labels.get(fb['performance'], '?')}"
+                        f"**{fb['muscle_group']}** · "
+                        f"Pump {fb['pump']}/5 · Soreness {fb['soreness']}/5 · "
+                        f"Performance {perf_l.get(fb['performance'], '?')}"
                     )
                 if w.get("notes"):
                     st.caption(f"📝 {w['notes']}")
 
     st.divider()
-    st.subheader("Volumen-Übersicht")
     vol_data = get_sets_per_muscle_per_week(meso["id"])
     if vol_data:
+        st.subheader("Volumen")
         df_vol = pd.DataFrame(vol_data)
         pivot = df_vol.pivot(index="muscle_group", columns="week_number",
-                             values="set_count").fillna(0)
-        pivot.columns = [f"Woche {c}" for c in pivot.columns]
-        st.dataframe(pivot.astype(int), use_container_width=True)
+                             values="set_count").fillna(0).astype(int)
+        pivot.columns = [f"W{c}" for c in pivot.columns]
+        st.dataframe(pivot, use_container_width=True)
