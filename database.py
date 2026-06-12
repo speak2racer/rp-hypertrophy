@@ -70,6 +70,7 @@ _SCHEMA_SQLITE = """
         username TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         salt TEXT NOT NULL,
+        is_admin INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS mesocycles (
@@ -148,6 +149,7 @@ _SCHEMA_POSTGRES = """
         username TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         salt TEXT NOT NULL,
+        is_admin BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS mesocycles (
@@ -226,8 +228,7 @@ def _migrate(conn):
             "ALTER TABLE ten_rm ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
             "ALTER TABLE workouts ADD COLUMN IF NOT EXISTS day_name TEXT",
             "ALTER TABLE mesocycles ADD COLUMN IF NOT EXISTS current_week INTEGER DEFAULT 1",
-            # Drop old unique constraint on exercise alone and replace with (user_id, exercise)
-            # Safe to ignore errors if constraint doesn't exist
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
         ]
         for sql in migrations:
             try:
@@ -256,6 +257,7 @@ def _migrate(conn):
             "ALTER TABLE ten_rm ADD COLUMN user_id INTEGER",
             "ALTER TABLE workouts ADD COLUMN day_name TEXT",
             "ALTER TABLE mesocycles ADD COLUMN current_week INTEGER DEFAULT 1",
+            "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
             """CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -747,12 +749,34 @@ def get_user_by_token(token: str) -> dict | None:
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        f"SELECT u.id, u.username FROM users u JOIN sessions s ON u.id=s.user_id WHERE s.token={p}",
+        f"SELECT u.id, u.username, u.is_admin FROM users u JOIN sessions s ON u.id=s.user_id WHERE s.token={p}",
         (token,)
     )
     row = _fetchone_as_dict(c)
     conn.close()
     return row
+
+
+def get_all_users() -> list[dict]:
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, username, is_admin FROM users ORDER BY username")
+    rows = c.fetchall()
+    conn.close()
+    if rows and hasattr(rows[0], "keys"):
+        return [dict(r) for r in rows]
+    cols = ["id", "username", "is_admin"]
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def set_admin(username: str, is_admin: bool):
+    p = _placeholder()
+    val = is_admin if _use_postgres() else (1 if is_admin else 0)
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"UPDATE users SET is_admin={p} WHERE username={p}", (val, username.lower()))
+    conn.commit()
+    conn.close()
 
 
 def delete_session(token: str):

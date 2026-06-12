@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import streamlit as st
 import pandas as pd
 from styles import inject_css
-from auth import require_auth, render_sidebar_user, init_auth
+from auth import require_auth, render_sidebar_user, init_auth, get_effective_user_id
 from database import (
     get_mesocycles, get_sets_per_muscle_per_week, get_all_sets_for_exercise,
     get_all_feedback_for_meso, get_workouts, get_sets
@@ -26,7 +26,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-mesocycles = get_mesocycles(user_id=user["id"])
+mesocycles = get_mesocycles(user_id=get_effective_user_id())
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["📈 Volumen", "💪 Stärke", "🎯 Feedback", "🔍 Deload-Analyse", "🧠 Kalibrierung"]

@@ -8,7 +8,7 @@ from database import (get_mesocycles, update_mesocycle_status, delete_mesocycle,
                        clone_mesocycle, get_muscle_configs)
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
-from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_token, init_auth
+from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_token, init_auth, get_effective_user_id
 
 st.set_page_config(
     page_title="RP Hypertrophy",
@@ -70,7 +70,7 @@ if not init_auth():
 user = get_current_user()
 render_sidebar_user()
 
-mesocycles = get_mesocycles(user_id=user["id"])
+mesocycles = get_mesocycles(user_id=get_effective_user_id())
 active = [m for m in mesocycles if m["status"] == "active"]
 deload = [m for m in mesocycles if m["status"] == "deload"]
 completed = [m for m in mesocycles if m["status"] == "completed"]
@@ -204,7 +204,7 @@ if completed:
                     for a in active:
                         update_mesocycle_status(a["id"], "completed")
                     clone_mesocycle(m["id"], new_name, new_start, new_configs,
-                                    user_id=user["id"])
+                                    user_id=get_effective_user_id())
                     del st.session_state[f"clone_{m['id']}"]
                     st.success(f"✅ **{new_name}** erstellt!")
                     st.rerun()

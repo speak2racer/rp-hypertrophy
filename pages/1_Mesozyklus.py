@@ -6,7 +6,7 @@ import streamlit as st
 from datetime import date
 from data.rp_volumes import RP_VOLUMES, MUSCLE_GROUPS
 from styles import inject_css
-from auth import require_auth, render_sidebar_user, init_auth
+from auth import require_auth, render_sidebar_user, init_auth, get_effective_user_id
 from data.exercises import EXERCISES
 from data.templates import TEMPLATES, TEMPLATE_NAMES
 from database import create_mesocycle, save_muscle_config, get_mesocycles, update_mesocycle_status
@@ -231,7 +231,7 @@ col4.metric("Peakvolumen", f"{total_peak} Sets/Wo.")
 st.divider()
 
 if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name):
-    for m in get_mesocycles(user_id=user["id"]):
+    for m in get_mesocycles(user_id=get_effective_user_id()):
         if m["status"] == "active":
             update_mesocycle_status(m["id"], "completed")
 
@@ -240,7 +240,7 @@ if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name)
         split_template=selected_template_name,
         split_days=split_days,
         split_order=split_order,
-        user_id=user["id"],
+        user_id=get_effective_user_id(),
     )
 
     for mg, cfg in muscle_configs.items():

@@ -3,7 +3,7 @@ import os
 import streamlit as st
 from database import (
     get_conn, _placeholder, _fetchone_as_dict,
-    create_session, get_user_by_token, delete_session
+    create_session, get_user_by_token, delete_session, get_all_users
 )
 
 _LS_KEY = "rp_session"
@@ -154,6 +154,34 @@ def get_current_user() -> dict | None:
     return st.session_state.get("auth_user")
 
 
+def is_admin() -> bool:
+    user = get_current_user()
+    return bool(user and user.get("is_admin"))
+
+
+def get_viewed_user_id() -> int | None:
+    """Returns the user_id whose data is currently being viewed (admin impersonation)."""
+    return st.session_state.get("admin_view_user_id")
+
+
+def get_effective_user_id() -> int | None:
+    """Returns the user_id to use for all DB queries — impersonated user if admin is viewing."""
+    override = get_viewed_user_id()
+    if override:
+        return override
+    user = get_current_user()
+    return user["id"] if user else None
+
+
+def get_viewed_user() -> dict | None:
+    """Returns the user dict of the currently viewed user (may differ from logged-in user)."""
+    override_id = get_viewed_user_id()
+    if override_id:
+        viewed = st.session_state.get("admin_view_user")
+        return viewed
+    return get_current_user()
+
+
 def require_auth() -> dict:
     """Call after init_auth(). Redirects to login if not authenticated."""
     user = get_current_user()
@@ -173,16 +201,47 @@ def logout():
 
 def render_sidebar_user():
     user = get_current_user()
-    if user:
-        with st.sidebar:
-            st.markdown(f"""
-            <div style='padding:10px 4px 14px;border-bottom:1px solid #1e1e1e;margin-bottom:8px'>
-                <div style='font-size:0.72rem;color:#555;text-transform:uppercase;
-                            letter-spacing:.06em'>Eingeloggt als</div>
-                <div style='font-size:0.95rem;font-weight:700;color:#f0f0f0;
-                            margin-top:4px'>{user['username']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("Abmelden", use_container_width=True):
-                logout()
+    if not user:
+        return
+    with st.sidebar:
+        viewed = get_viewed_user() or user
+        viewing_other = is_admin() and viewed["id"] != user["id"]
+
+        label_top = "👁️ Ansicht als" if viewing_other else "Eingeloggt als"
+        badge = " 🔑" if user.get("is_admin") else ""
+        st.markdown(f"""
+        <div style='padding:10px 4px 14px;border-bottom:1px solid #1e1e1e;margin-bottom:8px'>
+            <div style='font-size:0.72rem;color:#555;text-transform:uppercase;
+                        letter-spacing:.06em'>{label_top}</div>
+            <div style='font-size:0.95rem;font-weight:700;color:#f0f0f0;
+                        margin-top:4px'>{viewed['username']}{badge}</div>
+            {"<div style='font-size:0.72rem;color:#555;margin-top:2px'>Admin: " + user['username'] + "</div>" if viewing_other else ""}
+        </div>
+        """, unsafe_allow_html=True)
+
+        if is_admin():
+            all_users = get_all_users()
+            options = [u for u in all_users]
+            usernames = [u["username"] for u in options]
+            current_idx = next(
+                (i for i, u in enumerate(options) if u["id"] == viewed["id"]), 0
+            )
+            chosen_name = st.selectbox(
+                "User anzeigen",
+                usernames,
+                index=current_idx,
+                key="_admin_user_select",
+            )
+            chosen = next(u for u in options if u["username"] == chosen_name)
+            if chosen["id"] != viewed["id"]:
+                if chosen["id"] == user["id"]:
+                    st.session_state.pop("admin_view_user_id", None)
+                    st.session_state.pop("admin_view_user", None)
+                else:
+                    st.session_state["admin_view_user_id"] = chosen["id"]
+                    st.session_state["admin_view_user"] = chosen
                 st.rerun()
+
+        if st.button("Abmelden", use_container_width=True):
+            logout()
+            st.rerun()
