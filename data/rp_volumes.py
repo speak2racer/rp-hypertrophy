@@ -12,16 +12,12 @@ RP_VOLUMES = {
         "freq_per_week": 2, "icon": "🔙"
     },
     "Oberer Rücken": {
-        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 20,
-        "freq_per_week": 2, "icon": "🔝"
+        "MEV": 8, "MAV_low": 12, "MAV_high": 18, "MRV": 22,
+        "freq_per_week": 3, "icon": "🔝"
     },
     "Schulter Seite": {
         "MEV": 6, "MAV_low": 12, "MAV_high": 18, "MRV": 22,
         "freq_per_week": 3, "icon": "↔️"
-    },
-    "Schulter Hinten": {
-        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 20,
-        "freq_per_week": 3, "icon": "🔄"
     },
     "Biceps": {
         "MEV": 8, "MAV_low": 14, "MAV_high": 20, "MRV": 26,

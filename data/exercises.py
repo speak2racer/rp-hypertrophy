@@ -47,16 +47,18 @@ EXERCISES = {
     "Oberer Rücken": [
         # High SFR
         {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
-        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
         {"name": "Reverse Pec Deck", "equipment": "Machine", "sfr": "high"},
+        {"name": "Rear Delt Fly (Machine)", "equipment": "Machine", "sfr": "high"},
         {"name": "High Cable Rear Delt Fly", "equipment": "Cable", "sfr": "high"},
+        {"name": "Rear Delt Fly (DB)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
         {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Chest-Supported Row (high)", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Seated Cable Row (high pulley)", "equipment": "Cable", "sfr": "high"},
         # Medium SFR
         {"name": "Barbell Shrug", "equipment": "Barbell", "sfr": "medium"},
         {"name": "DB Shrug", "equipment": "Dumbbell", "sfr": "medium"},
-        {"name": "Upright Row", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Upright Row (wide grip)", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Schulter Seite": [
         # High SFR
@@ -73,18 +75,6 @@ EXERCISES = {
         {"name": "Barbell OHP (standing)", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Machine Shoulder Press", "equipment": "Machine", "sfr": "medium"},
         {"name": "Smith Machine OHP", "equipment": "Machine", "sfr": "medium"},
-    ],
-    "Schulter Hinten": [
-        # High SFR
-        {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
-        {"name": "Reverse Pec Deck", "equipment": "Machine", "sfr": "high"},
-        {"name": "Rear Delt Fly (Machine)", "equipment": "Machine", "sfr": "high"},
-        {"name": "High Cable Rear Delt Fly", "equipment": "Cable", "sfr": "high"},
-        {"name": "Rear Delt Fly (DB)", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
-        # Medium SFR
-        {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "medium"},
-        {"name": "Upright Row (wide grip)", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Biceps": [
         # High SFR
