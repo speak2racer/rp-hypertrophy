@@ -167,14 +167,30 @@ for i, mg in enumerate(selected_muscles):
     sfr_map = {e["name"]: e["sfr"] for e in EXERCISES.get(mg, [])}
     trains_on = [d for d, mgs in split_days.items() if mg in mgs]
     freq = len(trains_on) if trains_on else 1
+    start_sets = cal["recommended_start"]
+    sets_per_session = max(1, round(start_sets / freq))
+
+    # Recommend exercises: ≥1 per training day (rotation) AND enough for session volume
+    if sets_per_session <= 6:
+        per_session_rec = 1
+    elif sets_per_session <= 12:
+        per_session_rec = 2
+    else:
+        per_session_rec = 3
+    rec_ex = max(freq, per_session_rec)
 
     with cols[i % 2]:
         icon = vol_base.get("icon", "💪")
+        days_str = ", ".join(trains_on) if trains_on else "–"
         st.markdown(f"**{icon} {mg}**")
+        st.caption(
+            f"Empfehlung: **{rec_ex} Übung{'en' if rec_ex != 1 else ''}** "
+            f"· {freq}× pro Woche · {sets_per_session} Sets/Session"
+        )
         chosen = st.multiselect(
             f"ex_{mg}",
             options=available,
-            default=available[:2] if len(available) >= 2 else available,
+            default=available[:rec_ex] if len(available) >= rec_ex else available,
             key=f"ex_{mg}",
             label_visibility="collapsed",
         )
@@ -185,15 +201,13 @@ for i, mg in enumerate(selected_muscles):
         if sfr_badges:
             st.caption(sfr_badges)
 
-    start_sets = cal["recommended_start"]
     progression = [min(start_sets + (w - 1) * 2, cal["MRV"]) for w in range(1, weeks + 1)]
     muscle_configs[mg] = {
         "start_sets": start_sets,
         "exercises": chosen,
         "cal": cal,
-            "progression": progression,
-            "cal": cal,
-        }
+        "progression": progression,
+    }
 
 st.divider()
 
