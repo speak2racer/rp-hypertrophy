@@ -1,4 +1,4 @@
-"""
+﻿"""
 Database layer — PostgreSQL via psycopg2 (Supabase) with SQLite fallback for local dev.
 Connection string is read from st.secrets["DATABASE_URL"] or env var DATABASE_URL.
 """
@@ -24,17 +24,40 @@ def _use_postgres() -> bool:
     return bool(_get_database_url())
 
 
+@st.cache_resource
+def _get_pool():
+    """Connection pool — created once per Streamlit session, reused across all queries."""
+    from psycopg2 import pool
+    return pool.ThreadedConnectionPool(1, 5, _get_database_url())
+
+
 def get_conn():
     if _use_postgres():
-        import psycopg2
         import psycopg2.extras
-        conn = psycopg2.connect(_get_database_url())
-        return conn
+        return _get_pool().getconn()
     else:
         db_path = Path(__file__).parent / "rp_hypertrophy.db"
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+
+def release_conn(conn):
+    """Return a PostgreSQL connection back to the pool."""
+    if _use_postgres():
+        try:
+            _get_pool().putconn(conn)
+        except Exception:
+            pass
+    else:
+        conn.close()
+
+
+def _commit_and_release(conn):
+    """Commit, clear read cache, release connection."""
+    conn.commit()
+    st.cache_data.clear()
+    release_conn(conn)
 
 
 def _placeholder():
@@ -287,7 +310,7 @@ def init_db():
         conn.executescript(_SCHEMA_SQLITE)
     conn.commit()
     _migrate(conn)
-    conn.close()
+    release_conn(conn)
 
 
 # ── Mesocycles ────────────────────────────────────────────────────────────────
@@ -327,11 +350,11 @@ def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
              json.dumps(split_order) if split_order else None, meso_type)
         )
         meso_id = c.lastrowid
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
     return meso_id
 
 
+@st.cache_data(ttl=30)
 def get_mesocycles(user_id=None):
     p = _placeholder()
     conn = get_conn()
@@ -341,7 +364,7 @@ def get_mesocycles(user_id=None):
     else:
         c.execute("SELECT * FROM mesocycles ORDER BY created_at DESC")
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return [_decode_meso(r) for r in rows]
 
 
@@ -351,7 +374,7 @@ def get_mesocycle(meso_id):
     c = conn.cursor()
     c.execute(f"SELECT * FROM mesocycles WHERE id={p}", (meso_id,))
     row = _fetchone_as_dict(c)
-    conn.close()
+    release_conn(conn)
     return _decode_meso(row) if row else None
 
 
@@ -385,8 +408,7 @@ def update_mesocycle_status(meso_id, status):
     p = _placeholder()
     conn = get_conn()
     conn.cursor().execute(f"UPDATE mesocycles SET status={p} WHERE id={p}", (status, meso_id))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 def advance_mesocycle_week(meso_id: int, total_weeks: int) -> str:
@@ -402,25 +424,24 @@ def advance_mesocycle_week(meso_id: int, total_weeks: int) -> str:
     c.execute(f"SELECT current_week, status FROM mesocycles WHERE id={p}", (meso_id,))
     row = c.fetchone()
     if not row:
-        conn.close()
+        release_conn(conn)
         return "not_found"
     cw = row[0] or 1
     status = row[1]
     if status == "deload":
         c.execute(f"UPDATE mesocycles SET status='completed' WHERE id={p}", (meso_id,))
         conn.commit()
-        conn.close()
+        release_conn(conn)
         return "completed"
     new_week = cw + 1
     if new_week > total_weeks:
         c.execute(f"UPDATE mesocycles SET current_week={p}, status='deload' WHERE id={p}",
                   (new_week, meso_id))
         conn.commit()
-        conn.close()
+        release_conn(conn)
         return "deload"
     c.execute(f"UPDATE mesocycles SET current_week={p} WHERE id={p}", (new_week, meso_id))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
     return "advanced"
 
 
@@ -436,8 +457,7 @@ def delete_mesocycle(meso_id):
     c.execute(f"DELETE FROM workouts WHERE meso_id={p}", (meso_id,))
     c.execute(f"DELETE FROM meso_muscle_config WHERE meso_id={p}", (meso_id,))
     c.execute(f"DELETE FROM mesocycles WHERE id={p}", (meso_id,))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 # ── Muscle Config ─────────────────────────────────────────────────────────────
@@ -454,17 +474,17 @@ def save_muscle_config(meso_id, muscle_group, start_sets, exercises):
         f"INSERT INTO meso_muscle_config (meso_id, muscle_group, start_sets, exercises) VALUES ({p},{p},{p},{p})",
         (meso_id, muscle_group, start_sets, json.dumps(exercises))
     )
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
+@st.cache_data(ttl=30)
 def get_muscle_configs(meso_id):
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"SELECT * FROM meso_muscle_config WHERE meso_id={p}", (meso_id,))
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     result = {}
     for r in rows:
         r["exercises"] = json.loads(r["exercises"])
@@ -490,11 +510,11 @@ def create_workout(meso_id, workout_date, week_number, notes="", day_name=None):
             (meso_id, str(workout_date), week_number, notes, day_name)
         )
         wid = c.lastrowid
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
     return wid
 
 
+@st.cache_data(ttl=30)
 def get_last_workout_per_day(meso_id: int) -> dict[str, str]:
     """Returns {day_name: last_date_string} for all days trained in this meso."""
     p = _placeholder()
@@ -506,7 +526,7 @@ def get_last_workout_per_day(meso_id: int) -> dict[str, str]:
         (meso_id,)
     )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return {r["day_name"]: r["last_date"] for r in rows}
 
 
@@ -519,7 +539,7 @@ def get_workouts(meso_id=None):
     else:
         c.execute("SELECT * FROM workouts ORDER BY date DESC")
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return rows
 
 
@@ -529,7 +549,7 @@ def get_workout(workout_id):
     c = conn.cursor()
     c.execute(f"SELECT * FROM workouts WHERE id={p}", (workout_id,))
     row = _fetchone_as_dict(c)
-    conn.close()
+    release_conn(conn)
     return row
 
 
@@ -545,8 +565,7 @@ def save_set(workout_id, muscle_group, exercise, set_number, weight, reps, rpe,
            VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p},{p})""",
         (workout_id, muscle_group, exercise, set_number, weight, reps, rpe, pump, soreness, sfr)
     )
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 def get_sets(workout_id):
@@ -557,7 +576,7 @@ def get_sets(workout_id):
         f"SELECT * FROM sets WHERE workout_id={p} ORDER BY muscle_group, set_number", (workout_id,)
     )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return rows
 
 
@@ -572,10 +591,11 @@ def get_all_sets_for_exercise(exercise_name):
         (exercise_name,)
     )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return rows
 
 
+@st.cache_data(ttl=30)
 def get_sets_per_muscle_per_week(meso_id):
     p = _placeholder()
     conn = get_conn()
@@ -589,7 +609,7 @@ def get_sets_per_muscle_per_week(meso_id):
         (meso_id,)
     )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return rows
 
 
@@ -613,8 +633,7 @@ def save_feedback(workout_id, muscle_group, pump, soreness, performance, notes="
                VALUES ({p},{p},{p},{p},{p},{p})""",
             (workout_id, muscle_group, pump, soreness, performance, notes)
         )
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 def get_feedback(workout_id):
@@ -623,10 +642,11 @@ def get_feedback(workout_id):
     c = conn.cursor()
     c.execute(f"SELECT * FROM session_feedback WHERE workout_id={p}", (workout_id,))
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return rows
 
 
+@st.cache_data(ttl=30)
 def get_all_feedback_for_meso(meso_id):
     p = _placeholder()
     conn = get_conn()
@@ -638,7 +658,7 @@ def get_all_feedback_for_meso(meso_id):
         (meso_id,)
     )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     return rows
 
 
@@ -659,17 +679,17 @@ def save_ten_rm(exercise: str, weight: float, user_id=None):
     else:
         c.execute(f"INSERT INTO ten_rm (user_id, exercise, weight) VALUES ({p},{p},{p})",
                   (user_id, exercise, weight))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
+@st.cache_data(ttl=60)
 def get_ten_rm(exercise: str, user_id=None) -> float | None:
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
     row = c.fetchone()
-    conn.close()
+    release_conn(conn)
     return row[0] if row else None
 
 
@@ -695,7 +715,7 @@ def get_last_sets_for_muscle(meso_id: int, muscle_group: str, day_name: str | No
             (meso_id, muscle_group)
         )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     # Only keep sets from the single most recent workout date
     if not rows:
         return []
@@ -703,6 +723,7 @@ def get_last_sets_for_muscle(meso_id: int, muscle_group: str, day_name: str | No
     return [r for r in rows if r["date"] == latest_date]
 
 
+@st.cache_data(ttl=30)
 def get_last_feedback_per_muscle(meso_id: int) -> dict:
     """Returns the most recent feedback entry per muscle group for a mesocycle."""
     p = _placeholder()
@@ -717,7 +738,7 @@ def get_last_feedback_per_muscle(meso_id: int) -> dict:
         (meso_id,)
     )
     rows = _fetchall_as_dicts(c)
-    conn.close()
+    release_conn(conn)
     seen = {}
     for r in rows:
         mg = r["muscle_group"]
@@ -726,6 +747,7 @@ def get_last_feedback_per_muscle(meso_id: int) -> dict:
     return seen
 
 
+@st.cache_data(ttl=60)
 def get_all_ten_rms(user_id=None) -> dict[str, float]:
     p = _placeholder()
     conn = get_conn()
@@ -735,7 +757,7 @@ def get_all_ten_rms(user_id=None) -> dict[str, float]:
     else:
         c.execute("SELECT exercise, weight FROM ten_rm")
     rows = c.fetchall()
-    conn.close()
+    release_conn(conn)
     return {r[0]: r[1] for r in rows}
 
 
@@ -744,8 +766,7 @@ def create_session(user_id: int, token: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"INSERT INTO sessions (token, user_id) VALUES ({p},{p})", (token, user_id))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 def get_user_by_token(token: str) -> dict | None:
@@ -757,7 +778,7 @@ def get_user_by_token(token: str) -> dict | None:
         (token,)
     )
     row = _fetchone_as_dict(c)
-    conn.close()
+    release_conn(conn)
     return row
 
 
@@ -766,7 +787,7 @@ def get_all_users() -> list[dict]:
     c = conn.cursor()
     c.execute("SELECT id, username, is_admin FROM users ORDER BY username")
     rows = c.fetchall()
-    conn.close()
+    release_conn(conn)
     if rows and hasattr(rows[0], "keys"):
         return [dict(r) for r in rows]
     cols = ["id", "username", "is_admin"]
@@ -779,8 +800,7 @@ def set_admin(username: str, is_admin: bool):
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"UPDATE users SET is_admin={p} WHERE username={p}", (val, username.lower()))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 def delete_session(token: str):
@@ -788,8 +808,10 @@ def delete_session(token: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"DELETE FROM sessions WHERE token={p}", (token,))
-    conn.commit()
-    conn.close()
+    _commit_and_release(conn)
 
 
 init_db()
+
+
+
