@@ -118,7 +118,11 @@ def recommended_exercises(sets: int) -> int:
     return 3
 
 # ── Active mesocycle ──────────────────────────────────────────────────────────
-mesocycles = get_mesocycles(user_id=get_effective_user_id())
+try:
+    mesocycles = get_mesocycles(user_id=get_effective_user_id())
+except Exception as e:
+    st.error(f"⚠️ Datenbankfehler: {e}\n\nBitte Seite neu laden.")
+    st.stop()
 active = [m for m in mesocycles if m["status"] in ("active", "deload")]
 
 if not active:
@@ -251,7 +255,8 @@ with tab_new:
 
         for i, day_name in enumerate(split_order):
             muscles_in_day = split_days.get(day_name, [])
-            icons = "".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in muscles_in_day)
+            icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in muscles_in_day)
+            muscles_short = " · ".join(muscles_in_day) if muscles_in_day else ""
             is_sel = selected_day == day_name
             last_date = last_per_day.get(day_name)
             if last_date:
@@ -268,7 +273,8 @@ with tab_new:
                     f"{'✓ ' if is_sel else ''}{day_name}\n{icons}\n_{last_label}_",
                     key=f"day_{day_name}",
                     use_container_width=True,
-                    type="primary" if is_sel else "secondary"
+                    type="primary" if is_sel else "secondary",
+                    help=muscles_short,
                 ):
                     st.session_state["selected_training_day"] = day_name
                     for k in list(st.session_state.keys()):
@@ -278,9 +284,11 @@ with tab_new:
 
         selected_day = st.session_state.get("selected_training_day")
         if not selected_day or selected_day not in split_days:
-            st.info("Wähle einen Trainingstag.")
+            st.info("👆 Wähle oben einen Trainingstag um zu starten.")
             st.stop()
         session_muscles = split_days[selected_day]
+        st.caption(f"**{selected_day}:** " + "  ·  ".join(session_muscles))
+        st.warning("💡 Vergiss nicht, am Ende **💾 Session speichern** zu klicken — beim Schließen des Browsers gehen ungespeicherte Eingaben verloren.", icon=None)
 
     else:
         session_muscles = []

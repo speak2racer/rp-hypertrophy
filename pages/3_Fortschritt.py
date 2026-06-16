@@ -43,12 +43,12 @@ if not _NO_MESO:
 # ── Tab 1: Volume per Muscle per Week ────────────────────────────────────────
 with tab1:
     if _NO_MESO:
-        st.info("Noch keine Mesozyklen vorhanden.")
+        st.info("**Noch kein Mesozyklus vorhanden.** Erstelle zuerst einen Mesozyklus im 📅 Mesozyklus-Planer.")
     else:
         st.subheader("Trainingsvolumen pro Muskelgruppe")
         vol_data = get_sets_per_muscle_per_week(meso["id"])
         if not vol_data:
-            st.info("Noch keine Trainingsdaten.")
+            st.info("**Noch keine Trainingsdaten für diesen Zyklus.** Tracke dein erstes Training unter 🏋️ Training — danach siehst du hier wie sich dein Volumen pro Muskelgruppe über die Wochen entwickelt.")
         else:
             df = pd.DataFrame(vol_data)
             pivot = df.pivot(index="muscle_group", columns="week_number", values="set_count").fillna(0)
@@ -81,7 +81,7 @@ with tab1:
 # ── Tab 2: Strength Progress ──────────────────────────────────────────────────
 with tab2:
     if _NO_MESO:
-        st.info("Noch keine Mesozyklen vorhanden.")
+        st.info("**Noch kein Mesozyklus vorhanden.** Erstelle zuerst einen Mesozyklus im 📅 Mesozyklus-Planer.")
     else:
         st.subheader("Stärkeentwicklung")
         all_muscles = meso.get("muscle_groups", list(RP_VOLUMES.keys()))
@@ -93,7 +93,7 @@ with tab2:
             selected_ex = st.selectbox("Übung", exercises_for_mg)
             sets = get_all_sets_for_exercise(selected_ex)
             if not sets:
-                st.info(f"Noch keine Daten für **{selected_ex}**.")
+                st.info(f"**Noch keine Daten für {selected_ex}.** Tracke Sätze mit dieser Übung im Training — danach siehst du hier dein Gewichts- und 1RM-Fortschritt über die Zeit.")
             else:
                 df = pd.DataFrame(sets)
                 df["date"] = pd.to_datetime(df["date"])
@@ -125,12 +125,12 @@ with tab2:
 # ── Tab 3: Session Feedback ───────────────────────────────────────────────────
 with tab3:
     if _NO_MESO:
-        st.info("Noch keine Mesozyklen vorhanden.")
+        st.info("**Noch kein Mesozyklus vorhanden.** Erstelle zuerst einen Mesozyklus im 📅 Mesozyklus-Planer.")
     else:
         st.subheader("Session-Feedback Analyse")
         feedback_data = get_all_feedback_for_meso(meso["id"])
         if not feedback_data:
-            st.info("Noch kein Feedback erfasst.")
+            st.info("**Noch kein Feedback vorhanden.** Klappe nach dem Training den 💬 Feedback-Bereich auf und bewerte Pump und Soreness — danach siehst du hier wie sich deine Erholung pro Muskelgruppe über den Zyklus verhält.")
         else:
             df_fb = pd.DataFrame(feedback_data)
             df_fb["date"] = pd.to_datetime(df_fb["date"])

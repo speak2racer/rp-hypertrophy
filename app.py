@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import streamlit as st
 from datetime import date
 from database import (get_mesocycles, update_mesocycle_status, delete_mesocycle,
-                       clone_mesocycle, get_muscle_configs)
+                       clone_mesocycle, get_muscle_configs, get_last_workout_per_day)
 from data.rp_volumes import RP_VOLUMES
 from styles import inject_css
 from auth import login_user, register_user, get_current_user, render_sidebar_user, set_auth_token, init_auth, get_effective_user_id
@@ -70,7 +70,11 @@ if not init_auth():
 user = get_current_user()
 render_sidebar_user()
 
-mesocycles = get_mesocycles(user_id=get_effective_user_id())
+try:
+    mesocycles = get_mesocycles(user_id=get_effective_user_id())
+except Exception as e:
+    st.error(f"⚠️ Datenbankfehler: {e}\n\nBitte Seite neu laden. Falls das Problem bleibt, kurz warten — die Verbindung wird automatisch wiederhergestellt.")
+    st.stop()
 active = [m for m in mesocycles if m["status"] == "active"]
 deload = [m for m in mesocycles if m["status"] == "deload"]
 completed = [m for m in mesocycles if m["status"] == "completed"]
@@ -122,9 +126,37 @@ if active or deload:
             unsafe_allow_html=True
         )
 
+    # ── "Was steht heute an?" ─────────────────────────────────────────────────
+    split_order = meso.get("split_order") or []
+    split_days  = meso.get("split_days") or {}
+    if split_order and split_days:
+        last_per_day = get_last_workout_per_day(meso["id"])
+        # Find the last-trained day by most recent date
+        if last_per_day:
+            last_day_name = max(last_per_day, key=lambda d: last_per_day[d])
+            if last_day_name in split_order:
+                next_idx = (split_order.index(last_day_name) + 1) % len(split_order)
+            else:
+                next_idx = 0
+        else:
+            next_idx = 0
+        next_day = split_order[next_idx]
+        next_muscles = split_days.get(next_day, [])
+        next_icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in next_muscles)
+        st.markdown("")
+        with st.container(border=True):
+            col_l, col_r = st.columns([3, 1])
+            with col_l:
+                st.markdown(f"**Nächste Einheit: {next_day}** {next_icons}")
+                st.caption("  ·  ".join(next_muscles) if next_muscles else "")
+            with col_r:
+                if st.button("▶ Jetzt trainieren", type="primary", use_container_width=True):
+                    st.session_state["selected_training_day"] = next_day
+                    st.switch_page("pages/2_Training.py")
+
     st.markdown("")
     btn1, btn2, _ = st.columns([1, 1, 4])
-    if btn1.button("▶ Training", type="primary", use_container_width=True):
+    if btn1.button("▶ Training", use_container_width=True):
         st.switch_page("pages/2_Training.py")
     if btn2.button("📊 Fortschritt", use_container_width=True):
         st.switch_page("pages/3_Fortschritt.py")
