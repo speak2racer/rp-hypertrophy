@@ -55,6 +55,10 @@ with tab1:
             pivot.columns = [f"Woche {c}" for c in pivot.columns]
             pivot = pivot.astype(int)
 
+            weeks_tracked = df["week_number"].nunique()
+            if weeks_tracked == 1:
+                st.info("📊 Erst 1 Woche Daten — die Charts werden aussagekräftiger ab Woche 3. Weiter trainieren!")
+
             # ── Per-muscle charts with MEV/MAV/MRV bands ──────────────────────
             for mg in pivot.index:
                 if pivot.loc[mg].sum() == 0:
@@ -63,12 +67,18 @@ with tab1:
                 icon = vol.get("icon", "💪")
                 weeks_data = pivot.loc[mg]
                 last_sets = int(weeks_data.iloc[-1])
-                zone = (
-                    "🟢 im MEV-Bereich" if last_sets <= vol.get("MEV", 99)
-                    else "🟡 im MAV-Bereich" if last_sets <= vol.get("MAV_high", 99)
-                    else "🔴 über MRV"
-                )
-                with st.expander(f"{icon} **{mg}** — Woche {len(weeks_data)}: {last_sets} Sets  {zone}", expanded=True):
+                mev = vol.get("MEV", 0)
+                mav_h = vol.get("MAV_high", 99)
+                mrv = vol.get("MRV", 99)
+                if last_sets <= mev:
+                    zone = "⚪ unter MEV — zu wenig Reiz"
+                elif last_sets <= mav_h:
+                    zone = "🟢 im MAV-Bereich — optimal"
+                elif last_sets <= mrv:
+                    zone = "🟡 nahe MRV — hohe Last"
+                else:
+                    zone = "🔴 über MRV — Erholung prüfen"
+                with st.expander(f"{icon} **{mg}** — aktuell {last_sets} Sets/Wo.  {zone}", expanded=True):
                     chart_df = pd.DataFrame({
                         "Trainingsvolumen": weeks_data.values,
                         "MEV": [vol.get("MEV", None)] * len(weeks_data),
@@ -77,6 +87,11 @@ with tab1:
                         "MRV": [vol.get("MRV", None)] * len(weeks_data),
                     }, index=weeks_data.index)
                     st.line_chart(chart_df, use_container_width=True)
+                    c_mev, c_mav, c_mrv, c_cur = st.columns(4)
+                    c_mev.metric("MEV", f"{mev}")
+                    c_mav.metric("MAV", f"{vol.get('MAV_low',0)}–{mav_h}")
+                    c_mrv.metric("MRV", f"{mrv}")
+                    c_cur.metric("Aktuell", f"{last_sets}", delta=f"{last_sets - mev:+d} vs MEV")
 
 # ── Tab 2: Strength Progress ──────────────────────────────────────────────────
 with tab2:

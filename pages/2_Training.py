@@ -9,7 +9,8 @@ from database import (
     get_mesocycles, get_muscle_configs, create_workout, get_workouts,
     save_set, get_sets, save_feedback, get_feedback, get_sets_per_muscle_per_week,
     update_mesocycle_status, advance_mesocycle_week, get_ten_rm, save_ten_rm,
-    get_last_feedback_per_muscle, get_last_workout_per_day, get_last_sets_for_muscle
+    get_last_feedback_per_muscle, get_last_workout_per_day, get_last_sets_for_muscle,
+    update_muscle_exercises
 )
 from data.rp_volumes import RP_VOLUMES
 from data.exercises import EXERCISES
@@ -195,7 +196,19 @@ if not is_deload:
 # ── Week / Meso controls ──────────────────────────────────────────────────────
 st.divider()
 if is_deload:
-    st.info(f"**Deload-Woche** — 65% vom 10RM, ~5 RIR, halbes Volumen. Erholung für den nächsten Zyklus.")
+    vol_data = get_sets_per_muscle_per_week(meso["id"])
+    if vol_data:
+        df_vol = pd.DataFrame(vol_data)
+        last_training_week = df_vol[df_vol["week_number"] < meso["weeks"] + 1]["week_number"].max()
+        deload_sets = df_vol[df_vol["week_number"] == meso["weeks"] + 1]["set_count"].sum()
+        peak_sets = df_vol[df_vol["week_number"] == last_training_week]["set_count"].sum() if last_training_week else 0
+        reduction = int((1 - deload_sets / peak_sets) * 100) if peak_sets > 0 else 0
+        dl_col1, dl_col2, dl_col3 = st.columns(3)
+        dl_col1.metric("Deload-Volumen", f"{int(deload_sets)} Sets")
+        dl_col2.metric("Peak-Woche", f"{int(peak_sets)} Sets")
+        dl_col3.metric("Reduktion", f"{reduction}%", delta=f"Ziel: 40–60%",
+                       delta_color="normal" if 35 <= reduction <= 65 else "inverse")
+    st.info("**Deload-Woche** — 65% vom 10RM, ~5 RIR, halbes Volumen. Erholung für den nächsten Zyklus.")
     if st.button("✅ Deload & Mesozyklus abschließen", type="primary"):
         result = advance_mesocycle_week(meso["id"], meso["weeks"])
         st.success("Mesozyklus abgeschlossen!")
@@ -368,6 +381,19 @@ with tab_new:
         # Determine rotation index: which occurrence of this muscle group is today's day?
         days_with_mg = [d for d, mgs in split_days.items() if mg in mgs] if split_days else []
         day_rotation = days_with_mg.index(selected_day) if selected_day in days_with_mg else 0
+
+        # Mid-meso exercise swap
+        with st.popover("🔄 Übungen tauschen", use_container_width=False):
+            st.caption(f"Übungen für **{mg}** in diesem Mesozyklus dauerhaft ändern:")
+            all_ex_opts = [e["name"] for e in EXERCISES.get(mg, [])]
+            new_exercises = st.multiselect(
+                "Übungen", options=all_ex_opts, default=exercises,
+                key=f"swap_ex_{mg}"
+            )
+            if st.button("💾 Speichern", key=f"swap_save_{mg}", type="primary"):
+                update_muscle_exercises(meso["id"], mg, new_exercises)
+                st.toast(f"✅ Übungen für {mg} aktualisiert")
+                st.rerun()
 
         for ex_idx in range(st.session_state[ex_count_key]):
             with st.container(border=True):

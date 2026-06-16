@@ -191,8 +191,8 @@ hr { border-color: #1e1e1e !important; margin: 16px 0 !important; }
     /* Larger touch targets for buttons */
     [data-testid="stButton"] > button {
         min-height: 48px !important;
-        font-size: 0.95rem !important;
-        padding: 10px 16px !important;
+        font-size: 0.9rem !important;
+        padding: 10px 12px !important;
     }
     /* Larger inputs */
     [data-testid="stNumberInput"] input,
@@ -205,12 +205,19 @@ hr { border-color: #1e1e1e !important; margin: 16px 0 !important; }
         width: 100% !important;
     }
     /* Tabs: smaller text, scrollable */
+    [data-testid="stTabs"] [role="tablist"] {
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+    }
     [data-testid="stTabs"] button[role="tab"] {
-        font-size: 0.75rem !important;
-        padding: 6px 8px !important;
+        font-size: 0.72rem !important;
+        padding: 5px 7px !important;
+        white-space: nowrap !important;
     }
     /* Metrics: smaller on mobile */
-    [data-testid="stMetricValue"] { font-size: 1.2rem !important; }
+    [data-testid="stMetricValue"] { font-size: 1.1rem !important; }
+    [data-testid="stMetricLabel"] { font-size: 0.65rem !important; }
+    [data-testid="stMetric"] { padding: 10px 12px !important; }
     /* Radio: stack vertically on mobile */
     [data-testid="stRadio"] > div {
         flex-direction: column !important;
@@ -226,7 +233,8 @@ hr { border-color: #1e1e1e !important; margin: 16px 0 !important; }
         border: 1px solid #2a2a2a !important;
     }
     /* Page header smaller */
-    .page-title { font-size: 1.2rem !important; }
+    .page-title { font-size: 1.1rem !important; }
+    .page-sub   { font-size: 0.78rem !important; }
     /* Expander summary bigger touch area */
     [data-testid="stExpander"] summary {
         min-height: 48px !important;
@@ -237,6 +245,25 @@ hr { border-color: #1e1e1e !important; margin: 16px 0 !important; }
     [data-testid="stSelectbox"] > div > div {
         min-height: 48px !important;
         font-size: 1rem !important;
+    }
+    /* Columns: allow wrapping on very narrow screens */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+    }
+    /* Sidebar collapsed by default on mobile — handled by Streamlit,
+       but make the toggle button bigger */
+    [data-testid="stSidebarCollapsedControl"] button {
+        width: 48px !important;
+        height: 48px !important;
+    }
+    /* RIR banner readable on small screens */
+    .rir-banner {
+        font-size: 0.82rem !important;
+        padding: 10px 12px !important;
+    }
+    /* Weight suggestion box */
+    .weight-box {
+        font-size: 0.82rem !important;
     }
 }
 </style>

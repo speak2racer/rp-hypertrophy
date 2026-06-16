@@ -462,6 +462,18 @@ def delete_mesocycle(meso_id):
 
 # ── Muscle Config ─────────────────────────────────────────────────────────────
 
+def update_muscle_exercises(meso_id, muscle_group, exercises):
+    """Update only the exercises list for a muscle group (mid-meso swap)."""
+    p = _placeholder()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        f"UPDATE meso_muscle_config SET exercises={p} WHERE meso_id={p} AND muscle_group={p}",
+        (json.dumps(exercises), meso_id, muscle_group)
+    )
+    _commit_and_release(conn)
+
+
 def save_muscle_config(meso_id, muscle_group, start_sets, exercises):
     p = _placeholder()
     conn = get_conn()
