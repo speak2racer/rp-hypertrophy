@@ -138,32 +138,62 @@ else:
     if not completed:
         # First-time user onboarding
         st.markdown("""
-        <div style='background:#111;border:1px solid #1e1e1e;border-radius:10px;
-        padding:40px;text-align:center;margin:20px 0'>
-            <div style='font-size:2.5rem'>👋</div>
-            <div style='font-size:1.2rem;font-weight:700;color:#f0f0f0;margin:12px 0 6px'>
+        <div style='background:#111;border:1px solid #222;border-radius:12px;
+        padding:32px 40px;text-align:center;margin:20px 0 28px'>
+            <div style='font-size:2.8rem'>👋</div>
+            <div style='font-size:1.3rem;font-weight:700;color:#f0f0f0;margin:12px 0 8px'>
                 Willkommen bei Spischeks Hypertrophie Coaching!
             </div>
-            <div style='font-size:0.88rem;color:#888;margin-bottom:8px'>
-                Plane und tracke dein Training nach wissenschaftlichen Hypertrophie-Prinzipien.
+            <div style='font-size:0.9rem;color:#888;max-width:520px;margin:0 auto'>
+                Diese App hilft dir systematisch Muskeln aufzubauen — mit einem klaren Plan,
+                automatischer Gewichtssteuerung und Volumen das sich an deine Erholung anpasst.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("### So funktioniert es:")
+        st.markdown("#### In 4 Schritten loslegen:")
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown("""**1️⃣ Mesozyklus planen**
-Wähle ein Split-Template, such dir Übungen aus und leg das Startvolumen fest.""")
-        c2.markdown("""**2️⃣ Training tracken**
-Trag Gewicht, Wiederholungen und RIR ein. Das 10RM wird automatisch aktualisiert.""")
-        c3.markdown("""**3️⃣ Feedback geben**
-Nach jeder Session: Pump, Soreness und Performance bewerten.""")
-        c4.markdown("""**4️⃣ Kalibrierung nutzen**
-Die App lernt dein MEV/MAV/MRV und passt das Volumen im nächsten Zyklus an.""")
+        with c1:
+            with st.container(border=True):
+                st.markdown("**1️⃣ Mesozyklus planen**")
+                st.caption(
+                    "Wähle ein Split-Template (z.B. Push/Pull/Legs), "
+                    "such dir Übungen aus und lege fest wie viele Wochen der Zyklus dauert. "
+                    "Die App schlägt das Startvolumen automatisch vor."
+                )
+        with c2:
+            with st.container(border=True):
+                st.markdown("**2️⃣ Training tracken**")
+                st.caption(
+                    "Trag nach jedem Satz Gewicht, Wiederholungen und RIR ein. "
+                    "**RIR** (Reps in Reserve) = wie viele Wdh. du noch könntest. "
+                    "Die App berechnet daraus automatisch dein 10RM und schlägt Gewichte vor."
+                )
+        with c3:
+            with st.container(border=True):
+                st.markdown("**3️⃣ Feedback geben**")
+                st.caption(
+                    "Nach jeder Session kurz bewerten: "
+                    "**Pump** = wie stark der Muskel während dem Training gepumpt war. "
+                    "**Soreness** = Muskelkater am nächsten Tag. "
+                    "Daraus passt die App die Satzanzahl in der nächsten Session an."
+                )
+        with c4:
+            with st.container(border=True):
+                st.markdown("**4️⃣ Kalibrierung**")
+                st.caption(
+                    "Nach mehreren Sessions lernt die App dein optimales Volumen kennen: "
+                    "**MEV** = Minimum für Fortschritt, "
+                    "**MAV** = optimaler Bereich, "
+                    "**MRV** = Maximum das du noch erholen kannst."
+                )
 
         st.markdown("")
-        if st.button("➕ Ersten Mesozyklus erstellen", type="primary", use_container_width=False):
-            st.switch_page("pages/1_Mesozyklus.py")
+        col_btn, _ = st.columns([1, 3])
+        with col_btn:
+            if st.button("➕ Ersten Mesozyklus erstellen", type="primary", use_container_width=True):
+                st.switch_page("pages/1_Mesozyklus.py")
+        st.caption("👆 Klicke hier um deinen ersten Trainingsplan zu erstellen — dauert ca. 2 Minuten.")
     else:
         st.markdown("""
         <div style='background:#111;border:1px solid #1e1e1e;border-radius:10px;

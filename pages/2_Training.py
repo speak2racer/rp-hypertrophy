@@ -123,7 +123,13 @@ active = [m for m in mesocycles if m["status"] in ("active", "deload")]
 
 if not active:
     st.title("🏋️ Training")
-    st.warning("Kein aktiver Mesozyklus.")
+    st.info(
+        "**Noch kein aktiver Mesozyklus.**\n\n"
+        "Erstelle zuerst einen Mesozyklus unter **📅 Mesozyklus-Planer**. "
+        "Dort wählst du dein Split-Template (z.B. Push/Pull/Legs), "
+        "deine Übungen und wie viele Wochen der Zyklus dauern soll. "
+        "Danach kannst du hier deine Sessions tracken."
+    )
     if st.button("➕ Mesozyklus erstellen", type="primary"):
         st.switch_page("pages/1_Mesozyklus.py")
     st.stop()
@@ -215,6 +221,10 @@ st.markdown(
     f"<span style='color:{rcfg_color};font-weight:700'>{rcfg_label}</span>"
     f" &nbsp;—&nbsp; Stoppe jeden Satz mit noch <strong>{rir} Wdh.</strong> in Reserve"
     f" &nbsp;·&nbsp; Gewicht: <strong>{rcfg_pct}% vom 10RM</strong>"
+    f"<br><span style='color:#555;font-size:0.75rem'>"
+    f"RIR = Reps in Reserve — die Anzahl Wiederholungen die du am Ende eines Satzes noch könntest, bevor du versagst. "
+    f"{rir} RIR bedeutet: du hörst auf obwohl du noch {rir} weitere Wdh. schaffst."
+    f"</span>"
     f"</div>",
     unsafe_allow_html=True
 )
@@ -480,7 +490,7 @@ with tab_new:
                 perf_info = f"{sign}{delta_pct:.1f}% Volumen vs. {ref_date}"
 
         # Feedback expander — only pump + soreness manual
-        with st.expander("💬 Feedback", expanded=False):
+        with st.expander("💬 Feedback nach der Session", expanded=False):
             if last_sets:
                 ref_lines = " &nbsp;|&nbsp; ".join(
                     f"{s['exercise']}: <b>{s['weight']}kg × {s['reps']} ({s['rpe']} RIR)</b>"
@@ -504,6 +514,13 @@ with tab_new:
                 )
             else:
                 st.caption("⚡ Performance wird beim Speichern automatisch berechnet.")
+
+            st.caption(
+                "💡 **Pump** = wie stark der Muskel *während* dem Training gepumpt/gefüllt war. "
+                "Guter Pump zeigt gute Durchblutung und Reiz. "
+                "**Soreness** = Muskelkater *am nächsten Tag*. "
+                "Hohe Soreness → App reduziert die Sätze bis du erholt bist."
+            )
 
             _PUMP_OPTS = ["1 – Kaum spürbar", "2 – Wenig", "3 – Gut", "4 – Stark", "5 – Extrem"]
             _SOR_OPTS  = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]

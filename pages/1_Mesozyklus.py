@@ -97,6 +97,8 @@ with st.container(border=True):
         timeline.append(f"**→ Neu**")
         st.caption("  ›  ".join(timeline))
 
+st.caption("**RIR** (Reps in Reserve) = Wdh. die du am Ende eines Satzes noch könntest. 3 RIR = du hörst auf, könntest aber noch 3 weitere Wdh. schaffen.")
+
 _default_type_idx = 0 if rec_type == "hypertrophy" else 1
 meso_type = st.radio(
     "Mesozyklus-Typ",
@@ -236,6 +238,19 @@ st.divider()
 # ── Step 3: Exercise Selection ────────────────────────────────────────────────
 st.subheader("3. Übungen wählen")
 
+with st.expander("ℹ️ Was bedeuten MEV, MAV, MRV?", expanded=False):
+    st.markdown("""
+| Begriff | Bedeutung | Praxis |
+|---------|-----------|--------|
+| **MEV** — Minimum Effective Volume | Mindestanzahl Sätze pro Woche damit der Muskel wächst | Startpunkt nach Deload |
+| **MAV** — Maximum Adaptive Volume | Optimaler Bereich für maximales Wachstum | Ziel-Bereich im Meso |
+| **MRV** — Maximum Recoverable Volume | Maximale Sätze die du noch erholen kannst | Nie dauerhaft überschreiten |
+
+Die App startet nahe MEV und steigert das Volumen jede Woche Richtung MAV/MRV.
+Nach dem Deload startet der nächste Zyklus wieder bei MEV — aber auf höherem Niveau.
+""")
+
+
 calibrated = {mg: get_calibrated_volumes(mg) for mg in selected_muscles}
 muscle_configs = {}
 
@@ -268,10 +283,15 @@ for i, mg in enumerate(selected_muscles):
 
     with cols[i % 2]:
         icon = vol_base.get("icon", "💪")
+        mev = cal.get("MEV", vol_base.get("MEV", "?"))
+        mav_l = cal.get("MAV_low", vol_base.get("MAV_low", "?"))
+        mav_h = cal.get("MAV_high", vol_base.get("MAV_high", "?"))
+        mrv = cal.get("MRV", vol_base.get("MRV", "?"))
         st.markdown(f"**{icon} {mg}**")
         st.caption(
             f"Empfehlung: **{rec_ex} Übung{'en' if rec_ex != 1 else ''}** "
-            f"· {freq}× pro Woche · {intensity_hint}"
+            f"· {freq}× pro Woche · {intensity_hint} "
+            f"· MEV {mev} / MAV {mav_l}–{mav_h} / MRV {mrv} Sets/Wo."
         )
         chosen = st.multiselect(
             f"ex_{mg}",
