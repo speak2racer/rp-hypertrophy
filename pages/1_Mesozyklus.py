@@ -203,17 +203,51 @@ else:
 
     # Allow reordering/editing the template days
     with st.expander("🔧 Template anpassen (optional)", expanded=False):
-        st.caption("Du kannst Muskelgruppen pro Tag anpassen.")
+        st.caption("Muskelgruppen pro Tag hinzufügen/entfernen und Reihenfolge mit ↑↓ anpassen.")
         edited_days = {}
         for day_name in split_order:
             day_muscles = split_days.get(day_name, [])
+            order_key = f"edit_order_{day_name}"
+
+            st.markdown(f"**{day_name}**")
             chosen = st.multiselect(
-                day_name,
+                "Muskelgruppen",
                 options=MUSCLE_GROUPS,
                 default=day_muscles,
                 key=f"edit_{day_name}",
+                label_visibility="collapsed",
             )
-            edited_days[day_name] = chosen
+
+            # Sync: keep existing order, append newly added, drop removed
+            current_order = st.session_state.get(order_key, day_muscles)
+            synced = [m for m in current_order if m in chosen] + \
+                     [m for m in chosen if m not in current_order]
+            st.session_state[order_key] = synced
+
+            # Reorder UI — only shown when > 1 muscle selected
+            if len(synced) > 1:
+                for j, mg in enumerate(synced):
+                    icon = RP_VOLUMES.get(mg, {}).get("icon", "💪")
+                    c_num, c_name, c_up, c_dn = st.columns([1, 6, 1, 1])
+                    c_num.markdown(
+                        f"<div style='padding-top:6px;color:#555'>{j+1}.</div>",
+                        unsafe_allow_html=True,
+                    )
+                    c_name.markdown(
+                        f"<div style='padding-top:6px'>{icon} {mg}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if j > 0 and c_up.button("↑", key=f"up_{day_name}_{j}"):
+                        synced[j], synced[j-1] = synced[j-1], synced[j]
+                        st.session_state[order_key] = synced
+                        st.rerun()
+                    if j < len(synced) - 1 and c_dn.button("↓", key=f"down_{day_name}_{j}"):
+                        synced[j], synced[j+1] = synced[j+1], synced[j]
+                        st.session_state[order_key] = synced
+                        st.rerun()
+
+            edited_days[day_name] = synced
+            st.divider()
         split_days = edited_days
 
 # Show template preview
