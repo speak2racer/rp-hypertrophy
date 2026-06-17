@@ -452,19 +452,21 @@ with tab_new:
                     sc = st.columns([1, 3, 3, 3])
                     sc[0].markdown(f"<div style='padding-top:8px;color:#555;font-size:0.85rem'>{global_set}</div>",
                                    unsafe_allow_html=True)
+                    # Include chosen_ex in key so weight resets when exercise changes
+                    _ex_key = chosen_ex.replace(" ", "_")
                     weight = sc[1].number_input(
                         "", min_value=0.0, step=2.5, value=w_default,
-                        key=f"w_{mg}_{ex_idx}_{s}", label_visibility="collapsed"
+                        key=f"w_{mg}_{ex_idx}_{_ex_key}_{s}", label_visibility="collapsed"
                     )
                     reps = sc[2].number_input(
                         "", min_value=1, max_value=50, value=10,
-                        key=f"r_{mg}_{ex_idx}_{s}", label_visibility="collapsed"
+                        key=f"r_{mg}_{ex_idx}_{_ex_key}_{s}", label_visibility="collapsed"
                     )
                     rir_actual = sc[3].selectbox(
                         "", options=[0, 1, 2, 3, 4, 5, 6],
                         index=active_rir,
                         format_func=lambda x: f"{x} RIR{'  ⬆️' if x > active_rir + 1 else ('  ⬇️' if x < active_rir - 1 else '')}",
-                        key=f"rir_{mg}_{ex_idx}_{s}", label_visibility="collapsed"
+                        key=f"rir_{mg}_{ex_idx}_{_ex_key}_{s}", label_visibility="collapsed"
                     )
                     mg_sets.append({
                         "exercise": chosen_ex, "set": global_set,
