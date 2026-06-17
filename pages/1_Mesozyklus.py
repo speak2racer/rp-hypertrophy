@@ -332,21 +332,27 @@ for dn in _auto_order:
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("### Schritt 3 · Trainingsaufteilung")
 
-freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs) for mg in chosen_muscles}
+try:
+    from streamlit_sortables import sort_items as _sort_items
+    _has_sortables = True
+except ImportError:
+    _has_sortables = False
+
+_SPLIT_NAMES = {2: "Full Body", 3: "Push / Pull / Legs",
+                4: "Upper / Lower", 5: "Upper / Lower +", 6: "PPL × 2"}
 
 with st.container(border=True):
-    # Split-Vorschau
-    _SPLIT_NAMES = {2: "Full Body", 3: "Push / Pull / Legs",
-                    4: "Upper / Lower", 5: "Upper / Lower +", 6: "PPL × 2"}
+    # ── Split-Vorschau (aus session-state: zeigt letzten bestätigten Stand) ──
     st.markdown(f"**{_SPLIT_NAMES.get(n_days, '')} · {n_days} Tage**")
-
     preview_cols = st.columns(min(len(split_days), 3))
+    _freq_preview = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
+                     for mg in chosen_muscles}
     for i, (dn, mgs) in enumerate(split_days.items()):
         with preview_cols[i % len(preview_cols)]:
             icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in mgs)
             n_sets_est = sum(
                 max(1, round(RP_VOLUMES.get(mg, {}).get("MEV", 6)
-                             / max(freq_actual.get(mg, 1), 1)))
+                             / max(_freq_preview.get(mg, 1), 1)))
                 for mg in mgs
             )
             st.info(
@@ -355,66 +361,75 @@ with st.container(border=True):
                 + f"\n\n≈ {n_sets_est} Sets"
             )
 
-    # Frequenz-Analyse
+    st.divider()
+
+    # ── Anpassung (optional) — läuft IMMER, damit split_days aktuell ist ────
+    with st.expander("✏️ Aufteilung anpassen", expanded=False):
+        if _has_sortables:
+            st.caption("Muskeln per Drag & Drop zwischen Tagen verschieben · linke Spalte = im Training.")
+        else:
+            st.caption("Muskeln per Auswahl den Tagen zuordnen. Reihenfolge = Trainingsreihenfolge.")
+
+        new_split: dict[str, list] = {}
+        new_order: list[str] = []
+
+        for dn in _auto_order:
+            cur_mgs    = split_days.get(dn, [])
+            bench_mgs  = [m for m in chosen_muscles if m not in cur_mgs]
+            lc, rc = st.columns([1, 3])
+            with lc:
+                new_name = st.text_input(
+                    "Tag-Name", value=dn, key=f"rename_{dn}",
+                    label_visibility="collapsed", placeholder="Tag-Name",
+                ).strip() or dn
+
+            with rc:
+                if _has_sortables:
+                    result = _sort_items(
+                        [
+                            {"header": "Im Training",      "items": list(cur_mgs)},
+                            {"header": "Nicht an dem Tag", "items": list(bench_mgs)},
+                        ],
+                        multi_containers=True,
+                        key=f"sort_{dn}",
+                    )
+                    chosen_day = [m for m in result[0] if m in chosen_muscles]
+                else:
+                    chosen_day = st.multiselect(
+                        f"Muskelgruppen an {new_name}",
+                        options=chosen_muscles,
+                        default=cur_mgs,
+                        key=f"edit_{dn}",
+                        format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
+                        label_visibility="collapsed",
+                    )
+
+            st.session_state[f"sort_state_{dn}"] = chosen_day
+            new_split[new_name] = chosen_day
+            new_order.append(new_name)
+
+        # split_days immer aus Expander-Ergebnis setzen (nicht nur bei Änderung)
+        split_days  = new_split
+        split_order = new_order
+
+    # ── Frequenz-Analyse — NACH Expander, zeigt aktuellen Stand ─────────────
+    freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
+                   for mg in chosen_muscles}
     st.markdown("**Frequenz-Analyse**")
     st.caption(
-        "MEV/MAV/MRV = Mindest- / Optimal- / Maximalvolumen pro Woche. "
-        "🟢 Frequenz OK · 🟡 knapp · 🔴 zu wenig für optimales Wachstum."
+        "🟢 Frequenz erreicht · 🟡 knapp · 🔴 zu niedrig für optimales Muskelwachstum. "
+        "MEV = Mindestvolumen · MAV = optimaler Bereich · MRV = Maximum."
     )
     freq_cols = st.columns(min(len(chosen_muscles), 4))
     for i, mg in enumerate(chosen_muscles):
-        rec = RP_VOLUMES[mg]["freq_per_week"]
-        badge = _freq_badge(freq_actual[mg], rec)
+        rec    = RP_VOLUMES[mg]["freq_per_week"]
+        badge  = _freq_badge(freq_actual[mg], rec)
         icon_mg = RP_VOLUMES[mg].get("icon", "💪")
         freq_cols[i % 4].markdown(
             f"**{icon_mg} {mg}**  \n"
             f"<span style='font-size:0.8rem;color:#888'>{badge}</span>",
             unsafe_allow_html=True,
         )
-
-    st.divider()
-
-    # Anpassung (optional)
-    with st.expander("✏️ Aufteilung anpassen", expanded=False):
-        st.caption(
-            "Hier kannst du Muskeln zwischen Tagen verschieben und Tage umbenennen. "
-            "Die Reihenfolge in der Auswahl bestimmt auch die Reihenfolge im Training."
-        )
-        new_split: dict[str, list] = {}
-        new_order: list[str] = []
-        changed = False
-
-        for dn in _auto_order:
-            cur_mgs = split_days.get(dn, [])
-            lc, rc = st.columns([1, 3])
-            with lc:
-                new_name = st.text_input(
-                    "Tag-Name",
-                    value=dn,
-                    key=f"rename_{dn}",
-                    label_visibility="collapsed",
-                    placeholder="Tag-Name",
-                ).strip() or dn
-            with rc:
-                chosen_day = st.multiselect(
-                    f"Muskelgruppen an {new_name}",
-                    options=chosen_muscles,
-                    default=[m for m in cur_mgs if m in chosen_muscles],
-                    key=f"edit_{dn}",
-                    format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
-                    label_visibility="collapsed",
-                )
-            if chosen_day != cur_mgs or new_name != dn:
-                changed = True
-            st.session_state[f"sort_state_{dn}"] = chosen_day
-            new_split[new_name] = chosen_day
-            new_order.append(new_name)
-
-        if changed:
-            split_days  = new_split
-            split_order = new_order
-            freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
-                           for mg in chosen_muscles}
 
 selected_muscles = list(dict.fromkeys(mg for mgs in split_days.values() for mg in mgs))
 if not selected_muscles:
