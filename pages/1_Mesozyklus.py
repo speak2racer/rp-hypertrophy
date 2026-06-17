@@ -127,11 +127,12 @@ def auto_generate_split(n_days: int, selected: list,
 
 
 def _freq_badge(actual: int, recommended: int) -> str:
+    rec = f"Empfehlung: {recommended}×"
     if actual >= recommended:
-        return f"🟢 {actual}×/Wo."
+        return f"🟢 {actual}×/Wo. · {rec}"
     elif actual >= recommended - 1:
-        return f"🟡 {actual}×/Wo. (knapp)"
-    return f"🔴 {actual}×/Wo. (zu wenig)"
+        return f"🟡 {actual}×/Wo. · {rec} (knapp)"
+    return f"🔴 {actual}×/Wo. · {rec} (zu wenig)"
 
 
 def _macro_recommendation(mesocycles: list) -> tuple[str, str, str]:
