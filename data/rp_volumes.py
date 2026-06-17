@@ -20,7 +20,7 @@ RP_VOLUMES = {
         "freq_per_week": 3, "icon": "↔️"
     },
     "Biceps": {
-        "MEV": 8, "MAV_low": 14, "MAV_high": 20, "MRV": 26,
+        "MEV": 6, "MAV_low": 14, "MAV_high": 20, "MRV": 26,
         "freq_per_week": 2, "icon": "💪"
     },
     "Triceps": {

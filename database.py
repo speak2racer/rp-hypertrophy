@@ -430,15 +430,13 @@ def advance_mesocycle_week(meso_id: int, total_weeks: int) -> str:
     status = row[1]
     if status == "deload":
         c.execute(f"UPDATE mesocycles SET status='completed' WHERE id={p}", (meso_id,))
-        conn.commit()
-        release_conn(conn)
+        _commit_and_release(conn)
         return "completed"
     new_week = cw + 1
     if new_week > total_weeks:
         c.execute(f"UPDATE mesocycles SET current_week={p}, status='deload' WHERE id={p}",
                   (new_week, meso_id))
-        conn.commit()
-        release_conn(conn)
+        _commit_and_release(conn)
         return "deload"
     c.execute(f"UPDATE mesocycles SET current_week={p} WHERE id={p}", (new_week, meso_id))
     _commit_and_release(conn)
@@ -699,7 +697,10 @@ def get_ten_rm(exercise: str, user_id=None) -> float | None:
     p = _placeholder()
     conn = get_conn()
     c = conn.cursor()
-    c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
+    if user_id is None:
+        c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id IS NULL", (exercise,))
+    else:
+        c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
     row = c.fetchone()
     release_conn(conn)
     return row[0] if row else None

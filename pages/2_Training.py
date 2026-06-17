@@ -199,14 +199,20 @@ if is_deload:
     vol_data = get_sets_per_muscle_per_week(meso["id"])
     if vol_data:
         df_vol = pd.DataFrame(vol_data)
-        last_training_week = df_vol[df_vol["week_number"] < meso["weeks"] + 1]["week_number"].max()
-        deload_sets = df_vol[df_vol["week_number"] == meso["weeks"] + 1]["set_count"].sum()
-        peak_sets = df_vol[df_vol["week_number"] == last_training_week]["set_count"].sum() if last_training_week else 0
+        _training_weeks = df_vol[df_vol["week_number"] < meso["weeks"] + 1]["week_number"]
+        last_training_week = _training_weeks.max() if not _training_weeks.empty else None
+        deload_rows = df_vol[df_vol["week_number"] == meso["weeks"] + 1]["set_count"]
+        deload_sets = int(deload_rows.sum()) if not deload_rows.empty else 0
+        if last_training_week is not None:
+            peak_rows = df_vol[df_vol["week_number"] == last_training_week]["set_count"]
+            peak_sets = int(peak_rows.sum()) if not peak_rows.empty else 0
+        else:
+            peak_sets = 0
         reduction = int((1 - deload_sets / peak_sets) * 100) if peak_sets > 0 else 0
         dl_col1, dl_col2, dl_col3 = st.columns(3)
-        dl_col1.metric("Deload-Volumen", f"{int(deload_sets)} Sets")
-        dl_col2.metric("Peak-Woche", f"{int(peak_sets)} Sets")
-        dl_col3.metric("Reduktion", f"{reduction}%", delta=f"Ziel: 40–60%",
+        dl_col1.metric("Deload-Volumen", f"{deload_sets} Sets")
+        dl_col2.metric("Peak-Woche", f"{peak_sets} Sets")
+        dl_col3.metric("Reduktion", f"{reduction}%", delta="Ziel: 40–60%",
                        delta_color="normal" if 35 <= reduction <= 65 else "inverse")
     st.info("**Deload-Woche** — 65% vom 10RM, ~5 RIR, halbes Volumen. Erholung für den nächsten Zyklus.")
     if st.button("✅ Deload & Mesozyklus abschließen", type="primary"):
@@ -391,9 +397,12 @@ with tab_new:
                 key=f"swap_ex_{mg}"
             )
             if st.button("💾 Speichern", key=f"swap_save_{mg}", type="primary"):
-                update_muscle_exercises(meso["id"], mg, new_exercises)
-                st.toast(f"✅ Übungen für {mg} aktualisiert")
-                st.rerun()
+                if not new_exercises:
+                    st.error("Mindestens 1 Übung auswählen.")
+                else:
+                    update_muscle_exercises(meso["id"], mg, new_exercises)
+                    st.toast(f"✅ Übungen für {mg} aktualisiert")
+                    st.rerun()
 
         for ex_idx in range(st.session_state[ex_count_key]):
             with st.container(border=True):
@@ -511,10 +520,10 @@ with tab_new:
                          for s in [s_data])
             if last_vol > 0 and cur_vol > 0:
                 delta_pct = (cur_vol - last_vol) / last_vol * 100
-                if delta_pct >= 5:
-                    auto_perf = 4; perf_label = "+1 Besser"
-                elif delta_pct >= 10:
+                if delta_pct >= 10:
                     auto_perf = 5; perf_label = "+2 Viel besser"
+                elif delta_pct >= 5:
+                    auto_perf = 4; perf_label = "+1 Besser"
                 elif delta_pct <= -10:
                     auto_perf = 1; perf_label = "–2 Viel schlechter"
                 elif delta_pct <= -5:
