@@ -436,6 +436,60 @@ if not selected_muscles:
     st.stop()
 
 # ════════════════════════════════════════════════════════════════════════════
+# WECHSELWOCHE (optional)
+# ════════════════════════════════════════════════════════════════════════════
+_n_types = len(split_order)
+with st.container(border=True):
+    st.markdown("**Wechselwoche** *(optional)*")
+    st.caption(
+        "Trainierst du z. B. 3× pro Woche mit 2 verschiedenen Trainingstagen (A und B), "
+        "wechseln die Wochen automatisch: **Woche 1 → A, B, A** · **Woche 2 → B, A, B**. "
+        "So bekommt jeder Tag gleich viele 'erste' und 'letzte' Positionen in der Woche."
+    )
+
+    use_alt = st.toggle(
+        "Wechselwoche aktivieren",
+        value=st.session_state.get("_use_alternating", False),
+        key="_use_alternating",
+    )
+
+    if use_alt and _n_types >= 2:
+        # Wie viele physische Trainingstage pro Woche?
+        alt_days = st.select_slider(
+            "Physische Trainingstage pro Woche",
+            options=list(range(2, 7)),
+            value=st.session_state.get("_alt_days", min(3, _n_types + 1)),
+            format_func=lambda x: f"{x} Tage / Woche",
+            key="_alt_days",
+        )
+
+        # Baue 2-Wochen-Rotation: Session i → split_order[i % n_types]
+        _cycle = [split_order[i % _n_types] for i in range(alt_days * 2)]
+        _woche1 = _cycle[:alt_days]
+        _woche2 = _cycle[alt_days:]
+
+        w1c, w2c = st.columns(2)
+        with w1c:
+            st.markdown("**Woche 1:**")
+            st.markdown("  →  ".join(f"`{d}`" for d in _woche1))
+        with w2c:
+            st.markdown("**Woche 2:**")
+            st.markdown("  →  ".join(f"`{d}`" for d in _woche2))
+
+        if alt_days % _n_types == 0:
+            st.info(
+                f"Bei {alt_days} Tagen und {_n_types} Split-Typen ist kein Wechsel nötig — "
+                "jede Woche hat die gleiche Reihenfolge. Wähle eine ungerade Anzahl Tage für echten Wechsel.",
+            )
+
+        stored_split_order = _cycle
+    elif use_alt and _n_types < 2:
+        st.warning("Du brauchst mindestens 2 verschiedene Trainingstage für die Wechselwoche.")
+        stored_split_order = split_order
+    else:
+        stored_split_order = split_order
+
+# ════════════════════════════════════════════════════════════════════════════
 # SCHRITT 4 · ÜBUNGSAUSWAHL
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("### Schritt 4 · Übungsauswahl")
@@ -596,7 +650,8 @@ with st.container(border=True):
     total_peak = sum(c["progression"][-1]  for c in muscle_configs.values())
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Split",         f"{n_days} Tage / Wo.")
+    _phys_days = len(stored_split_order) // 2 if use_alt and len(stored_split_order) > len(split_order) else n_days
+    m1.metric("Split",         f"{_phys_days} Tage / Wo." + (" · ABA/BAB" if use_alt and len(stored_split_order) > len(split_order) else ""))
     m2.metric("Trainingstage", len(split_days))
     m3.metric("Startvolumen",  f"{total_w1} Sets / Wo.")
     m4.metric("Peakvolumen",   f"{total_peak} Sets / Wo.")
@@ -615,7 +670,7 @@ with st.container(border=True):
                 meso_name, start_date, weeks, weeks + 1, selected_muscles,
                 split_template=f"Auto {n_days}d",
                 split_days=split_days,
-                split_order=split_order,
+                split_order=stored_split_order,
                 user_id=get_effective_user_id(),
                 meso_type=meso_type,
             )
