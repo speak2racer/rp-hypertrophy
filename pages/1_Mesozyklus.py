@@ -335,34 +335,17 @@ for i, sk in enumerate(_slot_keys):
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("### Schritt 3 · Trainingsaufteilung")
 
-try:
-    from streamlit_sortables import sort_items as _sort_items
-    _has_sortables = True
-except ImportError:
-    _has_sortables = False
+st.caption("Muskelgruppen auswählen · Reihenfolge mit ↑ ↓ anpassen (= Trainingsreihenfolge).")
 
-st.caption("Muskelgruppen auswählen und Reihenfolge per Drag & Drop anpassen.")
-
-def _apply_sort_result(result, fallback: list) -> list:
-    """Liest flat-list sortables Ergebnis — robust gegen list/dict-Format."""
-    if not isinstance(result, (list, tuple)) or not result:
-        return list(fallback)
-    r0 = result[0]
-    if isinstance(r0, dict):
-        return list(r0.get("items", fallback))
-    return [x for x in result if isinstance(x, str)] or list(fallback)
-
-# split_days: Slot-Key → Muskelliste  (intern eindeutig, kein Überschreiben bei gleichem Namen)
 split_days: dict[str, list]   = {}
 split_order: list[str]        = []
 display_names: dict[str, str] = {}
 
 for sk in _slot_keys:
     cur_name = st.session_state.get(f"day_name_{sk}", sk)
-    _default = [m for m in st.session_state.get(f"sort_state_{sk}", []) if m in chosen_muscles]
-    # Letzter bekannter Drag-Zustand (nur Muskeln die noch in chosen_muscles sind)
     _ord_key  = f"sort_order_{sk}"
-    _prev_ord = [m for m in st.session_state.get(_ord_key, _default) if m in chosen_muscles]
+    _default  = [m for m in st.session_state.get(f"sort_state_{sk}", []) if m in chosen_muscles]
+    cur_order = [m for m in st.session_state.get(_ord_key, _default) if m in chosen_muscles]
 
     with st.container(border=True):
         name_col, sel_col = st.columns([1, 3])
@@ -374,27 +357,36 @@ for sk in _slot_keys:
             st.session_state[f"day_name_{sk}"] = new_name
 
         with sel_col:
-            # Multiselect: Hinzufügen / Entfernen
             active = st.multiselect(
                 "Muskelgruppen",
                 options=chosen_muscles,
-                default=_prev_ord,          # zeigt letzten Drag-Zustand als Auswahl
+                default=cur_order,
                 key=f"edit_{sk}",
                 format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
                 label_visibility="collapsed",
             )
 
-        # Merge: Drag-Reihenfolge beibehalten, neue Muskeln ans Ende, entfernte raus
-        _base = [m for m in _prev_ord if m in active] + [m for m in active if m not in _prev_ord]
+        # Reihenfolge aus letztem Stand ableiten (neue Muskeln ans Ende)
+        ordered = [m for m in cur_order if m in active] + [m for m in active if m not in cur_order]
 
-        if _has_sortables and len(_base) > 1:
-            st.caption("Reihenfolge ziehen:")
-            _raw = _sort_items(_base, key=f"drag_{sk}")
-            chosen_day = [m for m in _apply_sort_result(_raw, _base) if m in chosen_muscles]
+        if len(ordered) > 1:
+            for idx, mg in enumerate(ordered):
+                icon_mg = RP_VOLUMES[mg].get("icon", "💪")
+                r_cols = st.columns([3, 0.4, 0.4])
+                r_cols[0].markdown(f"**{idx + 1}.** {icon_mg} {mg}")
+                if idx > 0 and r_cols[1].button("↑", key=f"up_{sk}_{idx}", use_container_width=True):
+                    ordered[idx], ordered[idx - 1] = ordered[idx - 1], ordered[idx]
+                    st.session_state[_ord_key] = ordered
+                    st.rerun()
+                if idx < len(ordered) - 1 and r_cols[2].button("↓", key=f"dn_{sk}_{idx}", use_container_width=True):
+                    ordered[idx], ordered[idx + 1] = ordered[idx + 1], ordered[idx]
+                    st.session_state[_ord_key] = ordered
+                    st.rerun()
+            chosen_day = ordered
         else:
-            chosen_day = _base
+            chosen_day = ordered
 
-    st.session_state[_ord_key]           = chosen_day   # Drag-Zustand persistieren
+    st.session_state[_ord_key]           = chosen_day
     st.session_state[f"sort_state_{sk}"] = chosen_day
     split_days[sk]    = chosen_day
     split_order.append(sk)
