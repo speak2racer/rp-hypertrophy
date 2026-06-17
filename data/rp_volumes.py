@@ -12,8 +12,12 @@ RP_VOLUMES = {
         "freq_per_week": 2, "icon": "🔙"
     },
     "Oberer Rücken": {
-        "MEV": 8, "MAV_low": 12, "MAV_high": 18, "MRV": 22,
-        "freq_per_week": 3, "icon": "🔝"
+        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 20,
+        "freq_per_week": 2, "icon": "🔝"
+    },
+    "Schulter Hinten": {
+        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 22,
+        "freq_per_week": 3, "icon": "🔙"
     },
     "Schulter Seite": {
         "MEV": 6, "MAV_low": 12, "MAV_high": 18, "MRV": 22,
@@ -31,9 +35,13 @@ RP_VOLUMES = {
         "MEV": 8, "MAV_low": 12, "MAV_high": 18, "MRV": 20,
         "freq_per_week": 2, "icon": "🦵"
     },
-    "Hamstrings & Glutes": {
-        "MEV": 6, "MAV_low": 10, "MAV_high": 18, "MRV": 22,
+    "Hamstrings": {
+        "MEV": 6, "MAV_low": 10, "MAV_high": 16, "MRV": 20,
         "freq_per_week": 2, "icon": "🦵"
+    },
+    "Glutes": {
+        "MEV": 4, "MAV_low": 8, "MAV_high": 16, "MRV": 20,
+        "freq_per_week": 3, "icon": "🍑"
     },
     "Calves": {
         "MEV": 8, "MAV_low": 12, "MAV_high": 16, "MRV": 20,

@@ -45,20 +45,29 @@ EXERCISES = {
         {"name": "Rack Pull", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Oberer Rücken": [
-        # High SFR
+        # High SFR — Traps / Rhomboids / Mid-back
+        {"name": "Chest-Supported Row (high)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Seated Cable Row (high pulley)", "equipment": "Cable", "sfr": "high"},
+        {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
+        # Medium SFR
+        {"name": "Barbell Shrug", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "DB Shrug", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Upright Row (wide grip)", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Cable Shrug", "equipment": "Cable", "sfr": "medium"},
+    ],
+    "Schulter Hinten": [
+        # High SFR — Rear Delts
         {"name": "Face Pull", "equipment": "Cable", "sfr": "high"},
         {"name": "Reverse Pec Deck", "equipment": "Machine", "sfr": "high"},
         {"name": "Rear Delt Fly (Machine)", "equipment": "Machine", "sfr": "high"},
         {"name": "High Cable Rear Delt Fly", "equipment": "Cable", "sfr": "high"},
         {"name": "Rear Delt Fly (DB)", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
-        {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Chest-Supported Row (high)", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Seated Cable Row (high pulley)", "equipment": "Cable", "sfr": "high"},
+        {"name": "Bent-Over Rear Delt Raise (DB)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Cable Rear Delt Fly (low)", "equipment": "Cable", "sfr": "high"},
         # Medium SFR
-        {"name": "Barbell Shrug", "equipment": "Barbell", "sfr": "medium"},
-        {"name": "DB Shrug", "equipment": "Dumbbell", "sfr": "medium"},
-        {"name": "Upright Row (wide grip)", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Seated DB Rear Delt Raise", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Wide-Grip Upright Row", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Schulter Seite": [
         # High SFR
@@ -134,15 +143,8 @@ EXERCISES = {
         {"name": "Reverse Lunge", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Step-Up", "equipment": "Dumbbell", "sfr": "medium"},
     ],
-    "Hamstrings & Glutes": [
-        # High SFR — Glutes
-        {"name": "Barbell Hip Thrust", "equipment": "Barbell", "sfr": "high"},
-        {"name": "Smith Machine Hip Thrust", "equipment": "Machine", "sfr": "high"},
-        {"name": "DB Hip Thrust", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Single-Leg Hip Thrust", "equipment": "Bodyweight", "sfr": "high"},
-        {"name": "Cable Kickback", "equipment": "Cable", "sfr": "high"},
-        {"name": "Reverse Hyper", "equipment": "Machine", "sfr": "high"},
-        # High SFR — Hamstrings
+    "Hamstrings": [
+        # High SFR
         {"name": "Leg Curl (seated)", "equipment": "Machine", "sfr": "high"},
         {"name": "Leg Curl (lying)", "equipment": "Machine", "sfr": "high"},
         {"name": "Leg Curl (standing)", "equipment": "Machine", "sfr": "high"},
@@ -152,13 +154,28 @@ EXERCISES = {
         {"name": "45° Back Extension", "equipment": "Machine", "sfr": "high"},
         {"name": "Cable Pull-Through", "equipment": "Cable", "sfr": "high"},
         # Medium SFR
-        {"name": "Glute Bridge", "equipment": "Bodyweight", "sfr": "medium"},
-        {"name": "Abductor Machine", "equipment": "Machine", "sfr": "medium"},
-        {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
-        {"name": "Bulgarian Split Squat", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Nordic Curl", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Glute-Ham Raise", "equipment": "Machine", "sfr": "medium"},
         {"name": "Good Morning", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Bulgarian Split Squat", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
+    ],
+    "Glutes": [
+        # High SFR
+        {"name": "Barbell Hip Thrust", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Smith Machine Hip Thrust", "equipment": "Machine", "sfr": "high"},
+        {"name": "DB Hip Thrust", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Single-Leg Hip Thrust", "equipment": "Bodyweight", "sfr": "high"},
+        {"name": "Cable Kickback", "equipment": "Cable", "sfr": "high"},
+        {"name": "Reverse Hyper", "equipment": "Machine", "sfr": "high"},
+        {"name": "Cable Pull-Through", "equipment": "Cable", "sfr": "high"},
+        # Medium SFR
+        {"name": "Glute Bridge", "equipment": "Bodyweight", "sfr": "medium"},
+        {"name": "Abductor Machine", "equipment": "Machine", "sfr": "medium"},
+        {"name": "Bulgarian Split Squat (glute focus)", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Step-Up (glute focus)", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Calves": [
