@@ -451,7 +451,7 @@ for mg, days in _muscle_day_order.items():
         _auto_ex[mg][day] = pool[i % len(pool)] if pool else ""
 
 # ── UI: tab per training day ──────────────────────────────────────────────────
-day_ex_choices = {}  # {day: {mg: chosen_exercise}}
+day_ex_choices = {}  # {day: {mg: [exercise, ...]}}
 
 day_tabs = st.tabs(split_order)
 for tab, day in zip(day_tabs, split_order):
@@ -472,7 +472,7 @@ for tab, day in zip(day_tabs, split_order):
             freq = len(_muscle_day_order.get(mg, [day]))
 
             trains_on = _muscle_day_order.get(mg, [day])
-            freq_idx  = trains_on.index(day) + 1  # 1st / 2nd / 3rd occurrence
+            freq_idx  = trains_on.index(day) + 1
             auto_pick = _auto_ex.get(mg, {}).get(day, all_opts[0] if all_opts else "")
 
             mev   = cal.get("MEV",      vol.get("MEV", "?"))
@@ -483,14 +483,13 @@ for tab, day in zip(day_tabs, split_order):
             is_prio = mg in priority_muscles
             if meso_type == "strength":
                 start_sets = max(cal["MEV"], 3)
-                sets_hint  = f"{max(1, round(start_sets/freq))} Sets · 3–6 Wdh."
             else:
                 start_sets = (max(cal["recommended_start"], cal.get("MAV_low", cal["recommended_start"]))
                               if is_prio else cal["recommended_start"])
-                sets_hint  = f"{max(1, round(start_sets/freq))} Sets · 8–12 Wdh."
+            sets_per_session = max(1, round(start_sets / freq))
 
             freq_label = f"Training {freq_idx}/{freq}" if freq > 1 else ""
-            prio_badge = " ⭐ Priorität" if is_prio else ""
+            prio_badge = " ⭐" if is_prio else ""
 
             with cols[i % 2]:
                 st.markdown(
@@ -498,18 +497,46 @@ for tab, day in zip(day_tabs, split_order):
                     + (f" <span style='color:#888;font-size:0.8rem'>({freq_label})</span>" if freq_label else ""),
                     unsafe_allow_html=True,
                 )
-                st.caption(f"MEV {mev} / MAV {mav_l}–{mav_h} / MRV {mrv} · {sets_hint}")
 
-                default_idx = all_opts.index(auto_pick) if auto_pick in all_opts else 0
-                chosen_ex = st.selectbox(
-                    "Übung",
-                    options=all_opts,
-                    index=default_idx,
-                    key=f"ex_{day}_{mg}",
+                # How many exercises to use for this muscle this session
+                max_ex = min(3, len(all_opts))
+                # Auto-suggest 2 exercises when ≥ 5 sets/session
+                default_n_ex = 2 if sets_per_session >= 5 and max_ex >= 2 else 1
+                n_ex = st.radio(
+                    "Übungen",
+                    options=list(range(1, max_ex + 1)),
+                    index=default_n_ex - 1,
+                    horizontal=True,
+                    key=f"n_ex_{day}_{mg}",
+                    format_func=lambda x: f"{x} Übung{'en' if x > 1 else ''}",
                     label_visibility="collapsed",
-                    format_func=lambda x: f"{'🟢' if sfr_map.get(x)=='high' else '🟡'} {x}",
                 )
-                day_ex_choices[day][mg] = chosen_ex
+
+                # Show set distribution info
+                sets_each = [sets_per_session // n_ex + (1 if j < sets_per_session % n_ex else 0)
+                             for j in range(n_ex)]
+                st.caption(
+                    f"MEV {mev} / MAV {mav_l}–{mav_h} / MRV {mrv} · "
+                    f"{sets_per_session} Sets/Session"
+                    + (f" → {' + '.join(str(s) for s in sets_each)} Sets" if n_ex > 1 else "")
+                )
+
+                chosen_exs = []
+                for ex_idx in range(n_ex):
+                    # Suggest different exercises per slot (rotate pool)
+                    pool_idx = (trains_on.index(day) + ex_idx) % len(all_opts) if all_opts else 0
+                    fallback = all_opts[pool_idx] if all_opts else ""
+                    sel = st.selectbox(
+                        f"Übung {ex_idx + 1}",
+                        options=all_opts,
+                        index=all_opts.index(fallback) if fallback in all_opts else 0,
+                        key=f"ex_{day}_{mg}_{ex_idx}",
+                        label_visibility="collapsed",
+                        format_func=lambda x: f"{'🟢' if sfr_map.get(x)=='high' else '🟡'} {x}",
+                    )
+                    chosen_exs.append(sel)
+
+                day_ex_choices[day][mg] = chosen_exs
 
 # ── Collect into muscle_configs (exercises ordered by day-rotation) ───────────
 muscle_configs = {}
@@ -531,8 +558,15 @@ for mg in selected_muscles:
             start_sets = cal["recommended_start"]
         progression = [min(start_sets + (w-1)*2, cal["MRV"]) for w in range(1, weeks+1)]
 
-    # ordered list: ex for day1, ex for day2, ... (matches training-page rotation)
-    ordered_exercises = [day_ex_choices.get(d, {}).get(mg, "") for d in days if day_ex_choices.get(d, {}).get(mg)]
+    # Flatten: [ex_day1_slot1, ex_day1_slot2, ex_day2_slot1, ...]
+    # Training page rotates through this list by (day_rotation + ex_idx) % len
+    ordered_exercises = []
+    for d in days:
+        ex_list = day_ex_choices.get(d, {}).get(mg, [])
+        if isinstance(ex_list, list):
+            ordered_exercises.extend([e for e in ex_list if e])
+        elif ex_list:
+            ordered_exercises.append(ex_list)
     if not ordered_exercises:
         ordered_exercises = [_ex_pool.get(mg, [""])[0]]
 
