@@ -352,21 +352,16 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
         ).strip() or day_name
 
         if _has_sortables:
-            st.caption("Ziehen zum Verschieben — links = im Training, rechts = nicht im Training")
+            st.caption("Ziehen zum Verschieben — links = im Training, rechts = nicht im Plan")
             result = sort_items(
                 [
-                    {"header": "Im Training", "items": [
-                        f"{RP_VOLUMES.get(m,{}).get('icon','💪')} {m}" for m in day_muscles
-                    ]},
-                    {"header": "Nicht im Plan", "items": [
-                        f"{RP_VOLUMES.get(m,{}).get('icon','💪')} {m}" for m in bench_muscles
-                    ]},
+                    {"header": "Im Training", "items": list(day_muscles)},
+                    {"header": "Nicht im Plan", "items": list(bench_muscles)},
                 ],
                 multi_containers=True,
                 key=f"sort_{day_name}",
             )
-            chosen_day = [s.split(" ", 1)[1] if " " in s else s for s in result[0]]
-            chosen_day = [m for m in chosen_day if m in chosen_muscles]
+            chosen_day = [m for m in result[0] if m in chosen_muscles]
         else:
             chosen_day = st.multiselect(
                 "Muskelgruppen", options=chosen_muscles, default=day_muscles,
