@@ -334,23 +334,41 @@ _auto_days = {d: mgs for d, mgs in _auto_days.items() if mgs}
 _auto_order = [d for d in _auto_order if d in _auto_days]
 
 # ── Customise (optional) ──────────────────────────────────────────────────────
+try:
+    from streamlit_sortables import sort_items
+    _has_sortables = True
+except ImportError:
+    _has_sortables = False
+
 with st.expander("🔧 Split anpassen (optional)", expanded=False):
-    st.caption("Tage umbenennen, Muskelgruppen anpassen und Reihenfolge mit ↑↓ ändern.")
+    st.caption("Tage umbenennen · Muskeln hinzufügen/entfernen · Reihenfolge per Drag-and-Drop ändern")
     edited_days = {}
     edited_order = []
     for day_name in _auto_order:
         day_muscles = _auto_days.get(day_name, [])
-        col_name, col_muscles = st.columns([2, 5])
+        col_name, col_add = st.columns([2, 5])
         new_name = col_name.text_input(
             "Tag-Name", value=day_name, key=f"rename_{day_name}",
             label_visibility="collapsed",
         ).strip() or day_name
-        chosen_day = col_muscles.multiselect(
+
+        # Multiselect to add/remove muscles
+        chosen_day = col_add.multiselect(
             "Muskelgruppen", options=chosen_muscles, default=day_muscles,
             key=f"edit_{day_name}", label_visibility="collapsed",
         )
 
-        # Multiselect preserves selection order — that IS the training order
+        # Drag-and-drop reorder within the selected muscles
+        if _has_sortables and len(chosen_day) > 1:
+            sorted_day = sort_items(
+                [f"{RP_VOLUMES.get(m,{}).get('icon','💪')} {m}" for m in chosen_day],
+                direction="horizontal",
+                key=f"sort_{day_name}",
+            )
+            # Strip icon prefix back to muscle name
+            chosen_day = [s.split(" ", 1)[1] if " " in s else s for s in sorted_day]
+            chosen_day = [m for m in chosen_day if m in chosen_muscles]
+
         edited_days[new_name] = chosen_day
         edited_order.append(new_name)
         st.divider()
