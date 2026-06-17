@@ -335,16 +335,23 @@ _auto_order = [d for d in _auto_order if d in _auto_days]
 
 # ── Customise (optional) ──────────────────────────────────────────────────────
 with st.expander("🔧 Split anpassen (optional)", expanded=False):
-    st.caption("Muskelgruppen pro Tag hinzufügen / entfernen und Reihenfolge mit ↑↓ ändern.")
+    st.caption("Tage umbenennen, Muskelgruppen anpassen und Reihenfolge mit ↑↓ ändern.")
     edited_days = {}
+    edited_order = []
     for day_name in _auto_order:
         day_muscles = _auto_days.get(day_name, [])
         order_key = f"edit_order_{day_name}"
-        st.markdown(f"**{day_name}**")
-        chosen_day = st.multiselect(
+
+        col_name, col_muscles = st.columns([2, 5])
+        new_name = col_name.text_input(
+            "Tag-Name", value=day_name, key=f"rename_{day_name}",
+            label_visibility="collapsed",
+        ).strip() or day_name
+        chosen_day = col_muscles.multiselect(
             "Muskelgruppen", options=chosen_muscles, default=day_muscles,
             key=f"edit_{day_name}", label_visibility="collapsed",
         )
+
         current_order = st.session_state.get(order_key, day_muscles)
         synced = [m for m in current_order if m in chosen_day] + \
                  [m for m in chosen_day if m not in current_order]
@@ -363,10 +370,11 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
                     synced[j], synced[j+1] = synced[j+1], synced[j]
                     st.session_state[order_key] = synced
                     st.rerun()
-        edited_days[day_name] = synced
+        edited_days[new_name] = synced
+        edited_order.append(new_name)
         st.divider()
     split_days = edited_days
-    split_order = _auto_order
+    split_order = edited_order
 
 # ── Split preview + Frequenz-Analyse (aus finalem split_days) ────────────────
 freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs) for mg in chosen_muscles}
