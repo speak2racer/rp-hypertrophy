@@ -309,28 +309,10 @@ with st.container(border=True):
 _config_key = (n_days, tuple(chosen_muscles), tuple(priority_muscles))
 if st.session_state.get("_last_config") != _config_key:
     for k in list(st.session_state.keys()):
-        if k.startswith(("edit_", "sort_state_", "sort_order_state_", "rename_", "n_ex_", "ex_")):
+        if k.startswith(("edit_", "sort_state_", "sort_order_state_",
+                          "rename_", "day_name_", "n_ex_", "ex_")):
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
-
-# Auto-Split berechnen
-_auto_days, _auto_order = auto_generate_split(n_days, chosen_muscles, priority_muscles)
-_auto_days   = {d: mgs for d, mgs in _auto_days.items() if mgs}
-_auto_order  = [d for d in _auto_order if d in _auto_days]
-
-# Aktuellen Split aus Session-State laden (persistiert Nutzer-Anpassungen)
-split_days: dict[str, list] = {}
-split_order: list[str] = []
-for dn in _auto_order:
-    auto_mgs = [m for m in _auto_days.get(dn, []) if m in chosen_muscles]
-    cur_mgs  = [m for m in st.session_state.get(f"sort_state_{dn}", auto_mgs) if m in chosen_muscles]
-    split_days[dn]  = cur_mgs
-    split_order.append(dn)
-
-# ════════════════════════════════════════════════════════════════════════════
-# SCHRITT 3 · TRAININGSAUFTEILUNG
-# ════════════════════════════════════════════════════════════════════════════
-st.markdown("### Schritt 3 · Trainingsaufteilung")
 
 try:
     from streamlit_sortables import sort_items as _sort_items
@@ -338,92 +320,82 @@ try:
 except ImportError:
     _has_sortables = False
 
-_SPLIT_NAMES = {2: "Full Body", 3: "Push / Pull / Legs",
-                4: "Upper / Lower", 5: "Upper / Lower +", 6: "PPL × 2"}
+# Initialwerte: beim ersten Laden aus Auto-Split befüllen, danach aus session_state
+_auto_days, _auto_order = auto_generate_split(n_days, chosen_muscles, priority_muscles)
+_auto_days  = {d: mgs for d, mgs in _auto_days.items() if mgs}
+_auto_order = [d for d in _auto_order if d in _auto_days]
+
+# Feste Slot-Keys für n_days Tage (unabhängig von Tagnamen)
+_slot_keys = [f"slot_{i}" for i in range(n_days)]
+
+# Initialbefüllung: nur wenn noch kein Zustand gespeichert
+for i, sk in enumerate(_slot_keys):
+    if f"day_name_{sk}" not in st.session_state:
+        _default_dn = _auto_order[i] if i < len(_auto_order) else f"Tag {i + 1}"
+        _default_mgs = [m for m in _auto_days.get(_default_dn, []) if m in chosen_muscles]
+        st.session_state[f"day_name_{sk}"] = _default_dn
+        st.session_state[f"sort_state_{sk}"] = _default_mgs
+
+# ════════════════════════════════════════════════════════════════════════════
+# SCHRITT 3 · TRAININGSAUFTEILUNG
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("### Schritt 3 · Trainingsaufteilung")
+st.caption(
+    "Weise jedem Trainingstag beliebige Muskelgruppen zu. "
+    + ("Reihenfolge per Drag & Drop anpassen." if _has_sortables else "")
+)
+
+split_days: dict[str, list] = {}
+split_order: list[str] = []
+
+for sk in _slot_keys:
+    cur_name = st.session_state.get(f"day_name_{sk}", sk)
+    cur_mgs  = [m for m in st.session_state.get(f"sort_state_{sk}", []) if m in chosen_muscles]
+
+    with st.container(border=True):
+        name_col, sel_col = st.columns([1, 3])
+        with name_col:
+            new_name = st.text_input(
+                "Tag-Name", value=cur_name, key=f"rename_{sk}",
+                label_visibility="collapsed", placeholder="z.B. Push A",
+            ).strip() or cur_name
+            st.session_state[f"day_name_{sk}"] = new_name
+
+        with sel_col:
+            active = st.multiselect(
+                "Muskelgruppen",
+                options=chosen_muscles,
+                default=cur_mgs,
+                key=f"edit_{sk}",
+                format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
+                label_visibility="collapsed",
+            )
+
+        if _has_sortables and len(active) > 1:
+            st.caption("Trainingsreihenfolge (ziehen zum Sortieren):")
+            _skey = f"sort_order_state_{sk}"
+            _prev = st.session_state.get(_skey)
+            _base = (
+                [m for m in _prev if m in active] + [m for m in active if m not in _prev]
+                if _prev is not None else list(active)
+            )
+            ordered = _sort_items(_base, key=f"sort_order_{sk}")
+            if isinstance(ordered, list) and ordered and isinstance(ordered[0], dict):
+                ordered = ordered[0].get("items", _base)
+            chosen_day = [m for m in ordered if m in chosen_muscles]
+            st.session_state[_skey] = chosen_day
+        else:
+            chosen_day = active
+
+    st.session_state[f"sort_state_{sk}"] = chosen_day
+    split_days[new_name]  = chosen_day
+    split_order.append(new_name)
+
+# ── Frequenz-Analyse ─────────────────────────────────────────────────────────
+freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
+               for mg in chosen_muscles}
 
 with st.container(border=True):
-    # ── Split-Vorschau (aus session-state: zeigt letzten bestätigten Stand) ──
-    st.markdown(f"**{_SPLIT_NAMES.get(n_days, '')} · {n_days} Tage**")
-    preview_cols = st.columns(min(len(split_days), 3))
-    _freq_preview = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
-                     for mg in chosen_muscles}
-    for i, (dn, mgs) in enumerate(split_days.items()):
-        with preview_cols[i % len(preview_cols)]:
-            icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in mgs)
-            n_sets_est = sum(
-                max(1, round(RP_VOLUMES.get(mg, {}).get("MEV", 6)
-                             / max(_freq_preview.get(mg, 1), 1)))
-                for mg in mgs
-            )
-            st.info(
-                f"**{dn}**\n\n{icons}\n\n"
-                + "\n".join(f"• {mg}" for mg in mgs)
-                + f"\n\n≈ {n_sets_est} Sets"
-            )
-
-    st.divider()
-
-    # ── Anpassung (optional) — läuft IMMER, damit split_days aktuell ist ────
-    with st.expander("✏️ Aufteilung anpassen", expanded=False):
-        st.caption(
-            "**Auswahl** = Muskeln für diesen Tag hinzufügen / entfernen.  "
-            + ("**Reihenfolge** per Drag & Drop anpassen." if _has_sortables else "")
-        )
-
-        new_split: dict[str, list] = {}
-        new_order: list[str] = []
-
-        for dn in _auto_order:
-            cur_mgs = split_days.get(dn, [])
-
-            with st.container(border=True):
-                name_col, sel_col = st.columns([1, 3])
-                with name_col:
-                    new_name = st.text_input(
-                        "Tag-Name", value=dn, key=f"rename_{dn}",
-                        label_visibility="collapsed", placeholder="Tag-Name",
-                    ).strip() or dn
-                with sel_col:
-                    active = st.multiselect(
-                        "Muskelgruppen",
-                        options=chosen_muscles,
-                        default=[m for m in cur_mgs if m in chosen_muscles],
-                        key=f"edit_{dn}",
-                        format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
-                        label_visibility="collapsed",
-                    )
-
-                # Reihenfolge per Drag & Drop (flache Liste, kein Zweispalten-Layout)
-                if _has_sortables and len(active) > 1:
-                    st.caption("Reihenfolge im Training (ziehen zum Sortieren):")
-                    # Übergib immer den letzten Drag-Zustand als items,
-                    # damit der Rerun den Drag nicht zurücksetzt.
-                    _skey = f"sort_order_state_{dn}"
-                    _prev = st.session_state.get(_skey)
-                    if _prev is not None:
-                        # Merge: gelöschte entfernen, neue ans Ende
-                        _base = [m for m in _prev if m in active] + \
-                                [m for m in active if m not in _prev]
-                    else:
-                        _base = list(active)
-                    ordered = _sort_items(_base, key=f"sort_order_{dn}")
-                    if isinstance(ordered, list) and ordered and isinstance(ordered[0], dict):
-                        ordered = ordered[0].get("items", _base)
-                    chosen_day = [m for m in ordered if m in chosen_muscles]
-                    st.session_state[_skey] = chosen_day
-                else:
-                    chosen_day = active
-
-            st.session_state[f"sort_state_{dn}"] = chosen_day
-            new_split[new_name] = chosen_day
-            new_order.append(new_name)
-
-        split_days  = new_split
-        split_order = new_order
-
-    # ── Frequenz-Analyse — NACH Expander, zeigt aktuellen Stand ─────────────
-    freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
-                   for mg in chosen_muscles}
     st.markdown("**Frequenz-Analyse**")
     st.caption(
         "🟢 Frequenz erreicht · 🟡 knapp · 🔴 zu niedrig für optimales Muskelwachstum. "
@@ -431,8 +403,8 @@ with st.container(border=True):
     )
     freq_cols = st.columns(min(len(chosen_muscles), 4))
     for i, mg in enumerate(chosen_muscles):
-        rec    = RP_VOLUMES[mg]["freq_per_week"]
-        badge  = _freq_badge(freq_actual[mg], rec)
+        rec     = RP_VOLUMES[mg]["freq_per_week"]
+        badge   = _freq_badge(freq_actual[mg], rec)
         icon_mg = RP_VOLUMES[mg].get("icon", "💪")
         freq_cols[i % 4].markdown(
             f"**{icon_mg} {mg}**  \n"
