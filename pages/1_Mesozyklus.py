@@ -365,50 +365,49 @@ with st.container(border=True):
 
     # ── Anpassung (optional) — läuft IMMER, damit split_days aktuell ist ────
     with st.expander("✏️ Aufteilung anpassen", expanded=False):
-        if _has_sortables:
-            st.caption("Muskeln per Drag & Drop zwischen Tagen verschieben · linke Spalte = im Training.")
-        else:
-            st.caption("Muskeln per Auswahl den Tagen zuordnen. Reihenfolge = Trainingsreihenfolge.")
+        st.caption(
+            "**Auswahl** = Muskeln für diesen Tag hinzufügen / entfernen.  "
+            + ("**Reihenfolge** per Drag & Drop anpassen." if _has_sortables else "")
+        )
 
         new_split: dict[str, list] = {}
         new_order: list[str] = []
 
         for dn in _auto_order:
-            cur_mgs    = split_days.get(dn, [])
-            bench_mgs  = [m for m in chosen_muscles if m not in cur_mgs]
-            lc, rc = st.columns([1, 3])
-            with lc:
-                new_name = st.text_input(
-                    "Tag-Name", value=dn, key=f"rename_{dn}",
-                    label_visibility="collapsed", placeholder="Tag-Name",
-                ).strip() or dn
+            cur_mgs = split_days.get(dn, [])
 
-            with rc:
-                if _has_sortables:
-                    result = _sort_items(
-                        [
-                            {"header": "Im Training",      "items": list(cur_mgs)},
-                            {"header": "Nicht an dem Tag", "items": list(bench_mgs)},
-                        ],
-                        multi_containers=True,
-                        key=f"sort_{dn}",
-                    )
-                    chosen_day = [m for m in result[0] if m in chosen_muscles]
-                else:
-                    chosen_day = st.multiselect(
-                        f"Muskelgruppen an {new_name}",
+            with st.container(border=True):
+                name_col, sel_col = st.columns([1, 3])
+                with name_col:
+                    new_name = st.text_input(
+                        "Tag-Name", value=dn, key=f"rename_{dn}",
+                        label_visibility="collapsed", placeholder="Tag-Name",
+                    ).strip() or dn
+                with sel_col:
+                    active = st.multiselect(
+                        "Muskelgruppen",
                         options=chosen_muscles,
-                        default=cur_mgs,
+                        default=[m for m in cur_mgs if m in chosen_muscles],
                         key=f"edit_{dn}",
                         format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
                         label_visibility="collapsed",
                     )
 
+                # Reihenfolge per Drag & Drop (flache Liste, kein Zweispalten-Layout)
+                if _has_sortables and len(active) > 1:
+                    st.caption("Reihenfolge im Training (ziehen zum Sortieren):")
+                    ordered = _sort_items(active, key=f"sort_order_{dn}")
+                    # Flat-list sortables returns list of strings directly
+                    if isinstance(ordered, list) and ordered and isinstance(ordered[0], dict):
+                        ordered = ordered[0].get("items", active)
+                    chosen_day = [m for m in ordered if m in chosen_muscles]
+                else:
+                    chosen_day = active
+
             st.session_state[f"sort_state_{dn}"] = chosen_day
             new_split[new_name] = chosen_day
             new_order.append(new_name)
 
-        # split_days immer aus Expander-Ergebnis setzen (nicht nur bei Änderung)
         split_days  = new_split
         split_order = new_order
 
