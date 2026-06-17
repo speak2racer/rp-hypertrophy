@@ -309,7 +309,7 @@ with st.container(border=True):
 _config_key = (n_days, tuple(chosen_muscles), tuple(priority_muscles))
 if st.session_state.get("_last_config") != _config_key:
     for k in list(st.session_state.keys()):
-        if k.startswith(("edit_", "sort_state_", "sort_order_state_",
+        if k.startswith(("edit_", "sort_state_", "sort_order_state_", "in_training_",
                           "rename_", "day_name_", "n_ex_", "ex_")):
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
@@ -333,43 +333,71 @@ for i, sk in enumerate(_slot_keys):
 # SCHRITT 3 · TRAININGSAUFTEILUNG
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("### Schritt 3 · Trainingsaufteilung")
-st.caption(
-    "Weise jedem Tag beliebige Muskelgruppen zu. "
-    "Die Reihenfolge der Auswahl bestimmt auch die Trainingsreihenfolge innerhalb des Tages."
-)
+
+try:
+    from streamlit_sortables import sort_items as _sort_items
+    _has_sortables = True
+except ImportError:
+    _has_sortables = False
+
+if _has_sortables:
+    st.caption("Muskeln per Drag & Drop zuweisen und sortieren — links = im Training, rechts = verfügbar.")
+else:
+    st.caption("Weise jedem Tag Muskelgruppen zu. Reihenfolge der Auswahl = Trainingsreihenfolge.")
+
+def _parse_sort_result(result, fallback_in):
+    """Liest 'Im Training'-Items aus sortables-Ergebnis — robust gegen list/dict-Format."""
+    if not isinstance(result, (list, tuple)) or not result:
+        return list(fallback_in)
+    r0 = result[0]
+    items = r0.get("items", r0) if isinstance(r0, dict) else r0
+    return list(items) if isinstance(items, (list, tuple)) else list(fallback_in)
 
 # split_days: Slot-Key → Muskelliste  (intern eindeutig, kein Überschreiben bei gleichem Namen)
-split_days: dict[str, list]  = {}
-split_order: list[str]       = []   # Slot-Keys
-display_names: dict[str, str] = {}  # Slot-Key → Anzeigename
+split_days: dict[str, list]   = {}
+split_order: list[str]        = []   # Slot-Keys
+display_names: dict[str, str] = {}   # Slot-Key → Anzeigename
 
 for sk in _slot_keys:
     cur_name = st.session_state.get(f"day_name_{sk}", sk)
-    cur_mgs  = [m for m in st.session_state.get(f"sort_state_{sk}", []) if m in chosen_muscles]
+    # Persistierter Zustand: welche Muskeln "Im Training" für diesen Tag
+    _st_key  = f"in_training_{sk}"
+    _default = [m for m in st.session_state.get(f"sort_state_{sk}", []) if m in chosen_muscles]
+    cur_in   = [m for m in st.session_state.get(_st_key, _default) if m in chosen_muscles]
+    cur_out  = [m for m in chosen_muscles if m not in cur_in]
 
     with st.container(border=True):
-        name_col, sel_col = st.columns([1, 3])
-        with name_col:
-            new_name = st.text_input(
-                "Tag-Name", value=cur_name, key=f"rename_{sk}",
-                label_visibility="collapsed", placeholder="z.B. Push A",
-            ).strip() or cur_name
-            st.session_state[f"day_name_{sk}"] = new_name
+        new_name = st.text_input(
+            "Tag-Name", value=cur_name, key=f"rename_{sk}",
+            label_visibility="collapsed", placeholder="z.B. Push A",
+        ).strip() or cur_name
+        st.session_state[f"day_name_{sk}"] = new_name
 
-        with sel_col:
-            active = st.multiselect(
+        if _has_sortables:
+            result = _sort_items(
+                [
+                    {"header": "Im Training",  "items": cur_in},
+                    {"header": "Verfügbar",    "items": cur_out},
+                ],
+                multi_containers=True,
+                key=f"sort_{sk}",
+            )
+            chosen_day = [m for m in _parse_sort_result(result, cur_in) if m in chosen_muscles]
+        else:
+            chosen_day = st.multiselect(
                 "Muskelgruppen",
                 options=chosen_muscles,
-                default=cur_mgs,
+                default=cur_in,
                 key=f"edit_{sk}",
                 format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
                 label_visibility="collapsed",
             )
 
-    st.session_state[f"sort_state_{sk}"] = active
-    split_days[sk]       = active
+    st.session_state[_st_key]            = chosen_day
+    st.session_state[f"sort_state_{sk}"] = chosen_day
+    split_days[sk]    = chosen_day
     split_order.append(sk)
-    display_names[sk]    = new_name
+    display_names[sk] = new_name
 
 # ── Frequenz-Analyse ─────────────────────────────────────────────────────────
 freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
