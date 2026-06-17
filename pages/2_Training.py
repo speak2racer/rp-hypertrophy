@@ -376,6 +376,10 @@ with tab_new:
         mg_sets = []
         sets_logged = 0
 
+        # Determine rotation index: which occurrence of this muscle group is today's day?
+        days_with_mg = [d for d, mgs in split_days.items() if mg in mgs] if split_days else []
+        day_rotation = days_with_mg.index(selected_day) if selected_day in days_with_mg else 0
+
         # Mid-meso exercise swap
         with st.popover("🔄 Übungen tauschen", use_container_width=False):
             st.caption(f"Übungen für **{mg}** in diesem Mesozyklus dauerhaft ändern:")
@@ -396,12 +400,14 @@ with tab_new:
             with st.container(border=True):
                 # Exercise selector + sets count
                 h1, h2, h3 = st.columns([5, 1, 1])
-                default_ex = (exercises[ex_idx % len(exercises)] if exercises
+                rotated_idx = (day_rotation + ex_idx) % len(exercises) if exercises else 0
+                default_ex = (exercises[rotated_idx] if exercises
                               else all_options[0] if all_options else "")
+                _day_key = selected_day.replace(" ", "_") if selected_day else "default"
                 chosen_ex = h1.selectbox(
                     "Übung", options=all_options,
                     index=all_options.index(default_ex) if default_ex in all_options else 0,
-                    key=f"ex_sel_{mg}_{ex_idx}", label_visibility="collapsed"
+                    key=f"ex_sel_{mg}_{ex_idx}_{_day_key}", label_visibility="collapsed"
                 )
 
                 total_ex = st.session_state[ex_count_key]
