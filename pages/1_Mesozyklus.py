@@ -333,23 +333,6 @@ _auto_days, _auto_order = auto_generate_split(n_days, chosen_muscles, priority_m
 _auto_days = {d: mgs for d, mgs in _auto_days.items() if mgs}
 _auto_order = [d for d in _auto_order if d in _auto_days]
 
-# ── Frequency analysis ────────────────────────────────────────────────────────
-freq_actual = {mg: sum(1 for mgs in _auto_days.values() if mg in mgs) for mg in chosen_muscles}
-
-with st.container(border=True):
-    st.markdown("**Frequenz-Analyse** — wie oft wird jede Muskelgruppe pro Woche trainiert:")
-    cols_freq = st.columns(4)
-    for i, mg in enumerate(chosen_muscles):
-        rec    = RP_VOLUMES[mg]["freq_per_week"]
-        actual = freq_actual[mg]
-        icon_freq, label_freq = _freq_status(actual, rec)
-        icon_mg = RP_VOLUMES[mg].get("icon", "💪")
-        cols_freq[i % 4].markdown(
-            f"{icon_freq} **{icon_mg} {mg}**  \n"
-            f"<span style='color:#888;font-size:0.8rem'>{label_freq}</span>",
-            unsafe_allow_html=True,
-        )
-
 # ── Customise (optional) ──────────────────────────────────────────────────────
 with st.expander("🔧 Split anpassen (optional)", expanded=False):
     st.caption("Muskelgruppen pro Tag hinzufügen / entfernen und Reihenfolge mit ↑↓ ändern.")
@@ -385,7 +368,9 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
     split_days = edited_days
     split_order = _auto_order
 
-# ── Split preview ─────────────────────────────────────────────────────────────
+# ── Split preview + Frequenz-Analyse (aus finalem split_days) ────────────────
+freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs) for mg in chosen_muscles}
+
 _SPLIT_NAMES = {2: "Full Body", 3: "Push/Pull/Legs", 4: "Upper/Lower", 5: "Upper/Lower+", 6: "PPL×2"}
 st.markdown(f"**Dein Split — {_SPLIT_NAMES.get(n_days, '')} ({n_days} Tage):**")
 preview_cols = st.columns(min(len(split_days), 3))
@@ -400,6 +385,20 @@ for i, (day_name, muscles) in enumerate(split_days.items()):
             f"**{day_name}**\n\n{icons}\n\n"
             + "\n".join(f"• {mg}" for mg in muscles)
             + f"\n\n~{n_sets_est} Sets"
+        )
+
+with st.container(border=True):
+    st.markdown("**Frequenz-Analyse:**")
+    cols_freq = st.columns(4)
+    for i, mg in enumerate(chosen_muscles):
+        rec    = RP_VOLUMES[mg]["freq_per_week"]
+        actual = freq_actual[mg]
+        icon_freq, label_freq = _freq_status(actual, rec)
+        icon_mg = RP_VOLUMES[mg].get("icon", "💪")
+        cols_freq[i % 4].markdown(
+            f"{icon_freq} **{icon_mg} {mg}**  \n"
+            f"<span style='color:#888;font-size:0.8rem'>{label_freq}</span>",
+            unsafe_allow_html=True,
         )
 
 selected_template_name = f"Auto {n_days}d"
