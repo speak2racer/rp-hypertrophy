@@ -310,7 +310,7 @@ with st.container(border=True):
 _config_key = (n_days, tuple(chosen_muscles), tuple(priority_muscles))
 if st.session_state.get("_last_config") != _config_key:
     for k in list(st.session_state.keys()):
-        if k.startswith(("edit_", "sort_state_", "sort_order_state_", "in_training_",
+        if k.startswith(("edit_", "sort_state_", "sort_order_", "in_training_",
                           "rename_", "day_name_", "n_ex_", "ex_")):
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
@@ -341,60 +341,60 @@ try:
 except ImportError:
     _has_sortables = False
 
-if _has_sortables:
-    st.caption("Muskeln per Drag & Drop zuweisen und sortieren — links = im Training, rechts = verfügbar.")
-else:
-    st.caption("Weise jedem Tag Muskelgruppen zu. Reihenfolge der Auswahl = Trainingsreihenfolge.")
+st.caption("Muskelgruppen auswählen und Reihenfolge per Drag & Drop anpassen.")
 
-def _parse_sort_result(result, fallback_in):
-    """Liest 'Im Training'-Items aus sortables-Ergebnis — robust gegen list/dict-Format."""
+def _apply_sort_result(result, fallback: list) -> list:
+    """Liest flat-list sortables Ergebnis — robust gegen list/dict-Format."""
     if not isinstance(result, (list, tuple)) or not result:
-        return list(fallback_in)
+        return list(fallback)
     r0 = result[0]
-    items = r0.get("items", r0) if isinstance(r0, dict) else r0
-    return list(items) if isinstance(items, (list, tuple)) else list(fallback_in)
+    if isinstance(r0, dict):
+        return list(r0.get("items", fallback))
+    return [x for x in result if isinstance(x, str)] or list(fallback)
 
 # split_days: Slot-Key → Muskelliste  (intern eindeutig, kein Überschreiben bei gleichem Namen)
 split_days: dict[str, list]   = {}
-split_order: list[str]        = []   # Slot-Keys
-display_names: dict[str, str] = {}   # Slot-Key → Anzeigename
+split_order: list[str]        = []
+display_names: dict[str, str] = {}
 
 for sk in _slot_keys:
     cur_name = st.session_state.get(f"day_name_{sk}", sk)
-    # Persistierter Zustand: welche Muskeln "Im Training" für diesen Tag
-    _st_key  = f"in_training_{sk}"
     _default = [m for m in st.session_state.get(f"sort_state_{sk}", []) if m in chosen_muscles]
-    cur_in   = [m for m in st.session_state.get(_st_key, _default) if m in chosen_muscles]
-    cur_out  = [m for m in chosen_muscles if m not in cur_in]
+    # Letzter bekannter Drag-Zustand (nur Muskeln die noch in chosen_muscles sind)
+    _ord_key  = f"sort_order_{sk}"
+    _prev_ord = [m for m in st.session_state.get(_ord_key, _default) if m in chosen_muscles]
 
     with st.container(border=True):
-        new_name = st.text_input(
-            "Tag-Name", value=cur_name, key=f"rename_{sk}",
-            label_visibility="collapsed", placeholder="z.B. Push A",
-        ).strip() or cur_name
-        st.session_state[f"day_name_{sk}"] = new_name
+        name_col, sel_col = st.columns([1, 3])
+        with name_col:
+            new_name = st.text_input(
+                "Tag-Name", value=cur_name, key=f"rename_{sk}",
+                label_visibility="collapsed", placeholder="z.B. Push A",
+            ).strip() or cur_name
+            st.session_state[f"day_name_{sk}"] = new_name
 
-        if _has_sortables:
-            result = _sort_items(
-                [
-                    {"header": "Im Training",  "items": cur_in},
-                    {"header": "Verfügbar",    "items": cur_out},
-                ],
-                multi_containers=True,
-                key=f"sort_{sk}",
-            )
-            chosen_day = [m for m in _parse_sort_result(result, cur_in) if m in chosen_muscles]
-        else:
-            chosen_day = st.multiselect(
+        with sel_col:
+            # Multiselect: Hinzufügen / Entfernen
+            active = st.multiselect(
                 "Muskelgruppen",
                 options=chosen_muscles,
-                default=cur_in,
+                default=_prev_ord,          # zeigt letzten Drag-Zustand als Auswahl
                 key=f"edit_{sk}",
                 format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
                 label_visibility="collapsed",
             )
 
-    st.session_state[_st_key]            = chosen_day
+        # Merge: Drag-Reihenfolge beibehalten, neue Muskeln ans Ende, entfernte raus
+        _base = [m for m in _prev_ord if m in active] + [m for m in active if m not in _prev_ord]
+
+        if _has_sortables and len(_base) > 1:
+            st.caption("Reihenfolge ziehen:")
+            _raw = _sort_items(_base, key=f"drag_{sk}")
+            chosen_day = [m for m in _apply_sort_result(_raw, _base) if m in chosen_muscles]
+        else:
+            chosen_day = _base
+
+    st.session_state[_ord_key]           = chosen_day   # Drag-Zustand persistieren
     st.session_state[f"sort_state_{sk}"] = chosen_day
     split_days[sk]    = chosen_day
     split_order.append(sk)
