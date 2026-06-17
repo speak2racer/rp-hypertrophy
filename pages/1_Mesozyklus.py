@@ -309,7 +309,7 @@ with st.container(border=True):
 _config_key = (n_days, tuple(chosen_muscles), tuple(priority_muscles))
 if st.session_state.get("_last_config") != _config_key:
     for k in list(st.session_state.keys()):
-        if k.startswith(("edit_", "sort_state_", "rename_", "n_ex_", "ex_")):
+        if k.startswith(("edit_", "sort_state_", "sort_order_state_", "rename_", "n_ex_", "ex_")):
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
 
@@ -396,11 +396,21 @@ with st.container(border=True):
                 # Reihenfolge per Drag & Drop (flache Liste, kein Zweispalten-Layout)
                 if _has_sortables and len(active) > 1:
                     st.caption("Reihenfolge im Training (ziehen zum Sortieren):")
-                    ordered = _sort_items(active, key=f"sort_order_{dn}")
-                    # Flat-list sortables returns list of strings directly
+                    # Übergib immer den letzten Drag-Zustand als items,
+                    # damit der Rerun den Drag nicht zurücksetzt.
+                    _skey = f"sort_order_state_{dn}"
+                    _prev = st.session_state.get(_skey)
+                    if _prev is not None:
+                        # Merge: gelöschte entfernen, neue ans Ende
+                        _base = [m for m in _prev if m in active] + \
+                                [m for m in active if m not in _prev]
+                    else:
+                        _base = list(active)
+                    ordered = _sort_items(_base, key=f"sort_order_{dn}")
                     if isinstance(ordered, list) and ordered and isinstance(ordered[0], dict):
-                        ordered = ordered[0].get("items", active)
+                        ordered = ordered[0].get("items", _base)
                     chosen_day = [m for m in ordered if m in chosen_muscles]
+                    st.session_state[_skey] = chosen_day
                 else:
                     chosen_day = active
 
