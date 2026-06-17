@@ -11,45 +11,42 @@ from data.exercises import EXERCISES
 from database import create_mesocycle, save_muscle_config, get_mesocycles, update_mesocycle_status
 from calibration import get_calibrated_volumes
 
-# ── Muscle categories & indirect stimulus ────────────────────────────────────
-_PUSH  = ["Chest", "Schulter Seite", "Triceps"]
-_PULL  = ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps"]
-_LEGS  = ["Quads", "Hamstrings", "Glutes", "Calves"]
-_CORE  = ["Abs"]
+# ── Kategorien & Indirekt-Hinweise ───────────────────────────────────────────
+_PUSH = ["Chest", "Schulter Seite", "Triceps"]
+_PULL = ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps"]
+_LEGS = ["Quads", "Hamstrings", "Glutes", "Calves"]
+_CORE = ["Abs"]
 
-# Muscles that get meaningful indirect work from compound movements
 _INDIRECT = {
-    "Triceps":        "Mittrainiert durch alle Drückbewegungen (Bench, OHP)",
-    "Biceps":         "Mittrainiert durch alle Zugbewegungen (Rudern, Pulldown)",
-    "Schulter Hinten":"Mittrainiert durch Rudern (Lat, Oberer Rücken)",
-    "Hamstrings":     "Leicht mittrainiert durch Kniebeugen",
-    "Glutes":         "Mittrainiert durch Kniebeugen, Deadlifts und Ausfallschritte — separates Training für maximales Wachstum optional",
-    "Calves":         "Leicht mittrainiert durch Kniebeugen und Deadlifts",
-    "Abs":            "Als Stabilisator bei Kniebeugen, Deadlift und OHP aktiv",
+    "Triceps":         "Wird durch alle Drückübungen (Bankdrücken, OHP) mittrainiert",
+    "Biceps":          "Wird durch alle Zugübungen (Rudern, Pulldown) mittrainiert",
+    "Schulter Hinten": "Wird durch Rudern mittrainiert",
+    "Hamstrings":      "Wird leicht durch Kniebeugen mittrainiert",
+    "Glutes":          "Wird durch Kniebeugen und Deadlifts mittrainiert",
+    "Calves":          "Wird leicht durch Kniebeugen und Deadlifts mittrainiert",
+    "Abs":             "Wird als Stabilisator bei Kniebeugen, Deadlift und OHP aktiv",
 }
 
 _MG_CATEGORIES = {
-    "Drücken (Push)": _PUSH,
-    "Ziehen (Pull)":  _PULL,
-    "Beine":          _LEGS,
-    "Core":           _CORE,
+    "Drücken": _PUSH,
+    "Ziehen":  _PULL,
+    "Beine":   _LEGS,
+    "Core":    _CORE,
 }
 
-# Default selected muscles (exclude optional/indirect ones by default)
-_DEFAULT_SELECTED = ["Chest", "Lat", "Oberer Rücken", "Schulter Seite", "Schulter Hinten",
-                     "Biceps", "Triceps", "Quads", "Hamstrings"]
+_DEFAULT_SELECTED = [
+    "Chest", "Lat", "Oberer Rücken", "Schulter Seite", "Schulter Hinten",
+    "Biceps", "Triceps", "Quads", "Hamstrings",
+]
 
 
-def _prioritize_day(muscles: list[str], priority: set[str]) -> list[str]:
-    """Move priority muscles to the front of a training day."""
+# ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+def _prioritize_day(muscles: list, priority: set) -> list:
     return [m for m in muscles if m in priority] + [m for m in muscles if m not in priority]
 
 
-def auto_generate_split(n_days: int, selected: list[str],
-                        priority: list[str] | None = None) -> tuple[dict, list]:
-    """Returns (split_days, split_order) for the given muscles and day count.
-    Priority muscles get extra frequency (placed on more days) and appear first in each session.
-    """
+def auto_generate_split(n_days: int, selected: list,
+                        priority: list | None = None) -> tuple[dict, list]:
     s = set(selected)
     p = set(priority or [])
     push = [m for m in _PUSH if m in s]
@@ -62,7 +59,7 @@ def auto_generate_split(n_days: int, selected: list[str],
 
     if n_days == 2:
         all_mg = push + pull + legs + core
-        days = {"Full Body A": list(all_mg), "Full Body B": list(all_mg)}
+        days  = {"Full Body A": list(all_mg), "Full Body B": list(all_mg)}
         order = ["Full Body A", "Full Body B"]
 
     elif n_days == 3:
@@ -72,11 +69,8 @@ def auto_generate_split(n_days: int, selected: list[str],
             "Legs": legs + [c for c in core if c not in push],
         }
         order = ["Push", "Pull", "Legs"]
-        # Priority: add priority muscle to an extra day if it only appears once
         for pm in p:
-            current_freq = sum(1 for mgs in days.values() if pm in mgs)
-            if current_freq < 2:
-                # Find the day that does NOT already have it and is most logical
+            if sum(1 for mgs in days.values() if pm in mgs) < 2:
                 for day in order:
                     if pm not in days[day]:
                         days[day] = days[day] + [pm]
@@ -89,16 +83,12 @@ def auto_generate_split(n_days: int, selected: list[str],
         lower_b = f("Quads", "Glutes", "Calves") + [c for c in core if c not in lower_a]
         days  = {"Upper A": upper_a, "Lower A": lower_a, "Upper B": upper_b, "Lower B": lower_b}
         order = ["Upper A", "Lower A", "Upper B", "Lower B"]
-        # Priority: if priority muscle appears only once, add to the B-variant of its day
-        _day_pairs = [("Upper A", "Upper B"), ("Lower A", "Lower B")]
         for pm in p:
-            for da, db in _day_pairs:
+            for da, db in [("Upper A", "Upper B"), ("Lower A", "Lower B")]:
                 if pm in days[da] and pm not in days[db]:
-                    days[db] = [pm] + days[db]
-                    break
+                    days[db] = [pm] + days[db]; break
                 elif pm in days[db] and pm not in days[da]:
-                    days[da] = [pm] + days[da]
-                    break
+                    days[da] = [pm] + days[da]; break
 
     elif n_days == 5:
         upper_a = f("Chest", "Lat", "Oberer Rücken", "Schulter Seite")
@@ -112,515 +102,514 @@ def auto_generate_split(n_days: int, selected: list[str],
         if arm_sh:
             days["Arme & Schulter"] = arm_sh
             order.append("Arme & Schulter")
-        # Priority: add to extra day where not yet present
         for pm in p:
-            freq = sum(1 for mgs in days.values() if pm in mgs)
-            if freq < 3:
+            if sum(1 for mgs in days.values() if pm in mgs) < 3:
                 for day in order:
                     if pm not in days[day]:
-                        days[day] = [pm] + days[day]
-                        break
+                        days[day] = [pm] + days[day]; break
 
     else:  # 6
         pull_base = f("Lat", "Oberer Rücken", "Schulter Hinten", "Biceps")
         legs_base = f("Quads", "Hamstrings", "Glutes", "Calves")
         days = {
-            "Push A":  push,
-            "Pull A":  pull_base,
-            "Legs A":  legs_base,
-            "Push B":  push + core,
-            "Pull B":  pull_base[:],
-            "Legs B":  legs_base + [c for c in core if c not in push],
+            "Push A": push,
+            "Pull A": pull_base,
+            "Legs A": legs_base,
+            "Push B": push + core,
+            "Pull B": pull_base[:],
+            "Legs B": legs_base + [c for c in core if c not in push],
         }
         order = ["Push A", "Pull A", "Legs A", "Push B", "Pull B", "Legs B"]
 
-    # Move priority muscles to front of every day they appear in
     if p:
         days = {d: _prioritize_day(mgs, p) for d, mgs in days.items()}
-
     return days, order
 
 
-def _freq_status(actual: int, recommended: int) -> tuple[str, str]:
+def _freq_badge(actual: int, recommended: int) -> str:
     if actual >= recommended:
-        return "🟢", f"{actual}× / Wo. (empfohlen {recommended}×)"
+        return f"🟢 {actual}×/Wo."
     elif actual >= recommended - 1:
-        return "🟡", f"{actual}× / Wo. (empfohlen {recommended}×, knapp)"
-    else:
-        return "🔴", f"{actual}× / Wo. (empfohlen {recommended}×, zu wenig)"
+        return f"🟡 {actual}×/Wo. (knapp)"
+    return f"🔴 {actual}×/Wo. (zu wenig)"
 
+
+def _macro_recommendation(mesocycles: list) -> tuple[str, str, str]:
+    done = [m for m in mesocycles if m["status"] in ("completed", "active", "deload")]
+    done_sorted = sorted(done, key=lambda m: m.get("created_at", ""), reverse=True)
+    if not done_sorted:
+        return ("hypertrophy",
+                "💪 Empfehlung: Hypertrophie-Meso",
+                "Starte mit einem Hypertrophie-Meso um Muskelvolumen aufzubauen.")
+    hyp_streak = 0
+    for m in done_sorted:
+        if (m.get("meso_type") or "hypertrophy") == "strength":
+            break
+        hyp_streak += 1
+    last_type = done_sorted[0].get("meso_type") or "hypertrophy"
+    if last_type == "strength":
+        return ("hypertrophy", "💪 Empfehlung: Hypertrophie-Meso",
+                "Nach dem Kraft-Meso jetzt Hypertrophie — dein verbessertes 1RM erlaubt mehr Gewicht bei hohem Volumen.")
+    if hyp_streak >= 3:
+        return ("strength", "🏋️ Empfehlung: Kraft-Meso",
+                f"{hyp_streak} Hypertrophie-Mesos in Folge — Zeit das 1RM zu steigern.")
+    if hyp_streak == 2:
+        return ("strength", "🏋️ Empfehlung: Kraft-Meso (optional)",
+                "Nach 2 Hypertrophie-Mesos wäre ein Kraft-Block sinnvoll — spätestens nach dem nächsten.")
+    return ("hypertrophy", "💪 Empfehlung: Hypertrophie-Meso",
+            f"Noch {3 - hyp_streak - 1} weiterer Hypertrophie-Meso sinnvoll vor dem nächsten Kraft-Block.")
+
+
+# ── Seiten-Setup ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Mesozyklus-Planer", page_icon="📅", layout="wide")
 inject_css()
 init_auth()
 user = require_auth()
 render_sidebar_user()
+
 st.markdown("""
 <div class='page-header'>
     <p class='page-title'>📅 Mesozyklus-Planer</p>
-    <p class='page-sub'>Plane deinen nächsten Hypertrophie-Zyklus</p>
+    <p class='page-sub'>Plane deinen nächsten Trainings-Zyklus</p>
 </div>
 """, unsafe_allow_html=True)
-
-# ── Makrozyklus-Empfehlung ────────────────────────────────────────────────────
-def _macro_recommendation(mesocycles: list) -> tuple[str, str, str]:
-    """
-    Analysiert abgeschlossene Mesos und empfiehlt den nächsten Typ.
-    Returns (recommended_type, title, explanation).
-    """
-    done = [m for m in mesocycles if m["status"] in ("completed", "active", "deload")]
-    done_sorted = sorted(done, key=lambda m: m.get("created_at", ""), reverse=True)
-
-    if not done_sorted:
-        return "hypertrophy", "💪 Empfehlung: Hypertrophie-Meso", \
-               "Starte mit einem Hypertrophie-Meso um Muskelvolumen aufzubauen und dein MEV/MRV zu kalibrieren."
-
-    # Zähle aufeinanderfolgende Hypertrophie-Mesos seit letztem Kraft-Meso
-    hyp_streak = 0
-    last_strength_idx = None
-    for i, m in enumerate(done_sorted):
-        t = m.get("meso_type") or "hypertrophy"
-        if t == "strength":
-            last_strength_idx = i
-            break
-        hyp_streak += 1
-
-    total = len(done_sorted)
-    last_type = done_sorted[0].get("meso_type") or "hypertrophy"
-
-    if last_type == "strength":
-        return "hypertrophy", "💪 Empfehlung: Hypertrophie-Meso", \
-               "Du hast gerade einen Kraft-Meso abgeschlossen. Jetzt ist der ideale Zeitpunkt für " \
-               "Hypertrophie — dein 1RM ist verbessert, nutze das für höhere Gewichte bei mehr Volumen."
-    elif hyp_streak >= 3:
-        return "strength", "🏋️ Empfehlung: Kraft-Meso", \
-               f"Du hast {hyp_streak} Hypertrophie-Mesos in Folge absolviert. " \
-               "Zeit für einen Kraft-Meso um das 1RM zu steigern und die Basis für den nächsten Aufbaublock zu legen."
-    elif hyp_streak == 2:
-        return "strength", "🏋️ Empfehlung: Kraft-Meso (optional)", \
-               "Nach 2 Hypertrophie-Mesos wäre ein Kraft-Meso sinnvoll. " \
-               "Du kannst noch einen dritten Hypertrophie-Meso machen, spätestens danach solltest du jedoch Kraft trainieren."
-    else:
-        return "hypertrophy", "💪 Empfehlung: Hypertrophie-Meso", \
-               f"Du bist bei {hyp_streak} Hypertrophie-Meso{'s' if hyp_streak != 1 else ''} seit dem letzten Kraft-Block. " \
-               "Noch 1–2 weitere Hypertrophie-Mesos sind sinnvoll bevor du wieder Kraft trainierst."
 
 all_mesos = get_mesocycles(user_id=get_effective_user_id())
 rec_type, rec_title, rec_text = _macro_recommendation(all_mesos)
 
-# ── Step 1: Basic Settings ────────────────────────────────────────────────────
-st.subheader("1. Grundeinstellungen")
-col1, col2, col3 = st.columns(3)
-with col1:
-    meso_name = st.text_input("Name des Mesozyklus", value=f"Meso {date.today().strftime('%b %Y')}")
-with col2:
-    start_date = st.date_input("Startdatum", value=date.today())
-with col3:
-    weeks = st.slider("Wochen (excl. Deload)", min_value=3, max_value=8, value=5)
-
-st.caption(f"Deload-Woche: Woche {weeks + 1} | Gesamtdauer: {weeks + 1} Wochen")
-
-# Makrozyklus-Empfehlung anzeigen
+# ════════════════════════════════════════════════════════════════════════════
+# SCHRITT 1 · GRUNDEINSTELLUNGEN
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("### Schritt 1 · Grundeinstellungen")
 with st.container(border=True):
-    st.markdown(f"**{rec_title}**")
-    st.caption(rec_text)
-    # Timeline der letzten Mesos
-    done_mesos = [m for m in all_mesos if m["status"] in ("completed", "active", "deload")]
-    if done_mesos:
-        timeline = []
-        for m in sorted(done_mesos, key=lambda x: x.get("created_at", ""))[-6:]:
-            t = m.get("meso_type") or "hypertrophy"
-            icon = "💪" if t == "hypertrophy" else "🏋️"
-            timeline.append(f"{icon} {m['name']}")
-        timeline.append(f"**→ Neu**")
-        st.caption("  ›  ".join(timeline))
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        meso_name = st.text_input(
+            "Name des Mesozyklus",
+            value=f"Meso {date.today().strftime('%b %Y')}",
+            placeholder="z.B. Sommer Aufbau",
+        )
+    with c2:
+        start_date = st.date_input("Startdatum", value=date.today())
+    with c3:
+        weeks = st.slider(
+            "Trainingswochen",
+            min_value=3, max_value=8, value=5,
+            help="Anzahl Wochen vor dem Deload",
+        )
+    st.caption(f"Deload-Woche: Woche {weeks + 1} · Gesamtdauer: {weeks + 1} Wochen")
 
-st.caption("**RIR** (Reps in Reserve) = Wdh. die du am Ende eines Satzes noch könntest. 3 RIR = du hörst auf, könntest aber noch 3 weitere Wdh. schaffen.")
+    st.divider()
 
-_default_type_idx = 0 if rec_type == "hypertrophy" else 1
-meso_type = st.radio(
-    "Mesozyklus-Typ",
-    options=["hypertrophy", "strength"],
-    format_func=lambda x: "💪 Hypertrophie  —  hohes Volumen, 8–12 Wdh., MEV→MRV" if x == "hypertrophy"
-                          else "🏋️ Kraft  —  schwere Gewichte, 3–6 Wdh., Volumen bei MEV",
-    horizontal=True,
-    index=_default_type_idx,
-    key="meso_type_select",
-)
-if meso_type == "strength":
-    st.info("**Kraft-Meso:** Weniger Sätze (nahe MEV), höhere Intensität (80–95% 1RM), 3–6 Wiederholungen. "
-            "Verbessert das 1RM → automatisch höhere Gewichtsvorschläge im nächsten Hypertrophie-Meso.")
-
-st.divider()
-
-# ── Step 2a: Trainingstage ────────────────────────────────────────────────────
-st.subheader("2. Trainingsplanung")
-
-n_days = st.select_slider(
-    "Wie viele Tage pro Woche möchtest du trainieren?",
-    options=[2, 3, 4, 5, 6],
-    value=st.session_state.get("n_days_select", 4),
-    format_func=lambda x: f"{x} Tage / Woche",
-    key="n_days_select",
-)
-
-st.markdown("**Welche Muskelgruppen möchtest du direkt trainieren?**")
-st.caption(
-    "Muskeln die du nicht ankreuzt werden durch Compound-Übungen indirekt mittrainiert — "
-    "das kann für manche Muskeln (z.B. Waden, Abs) ausreichen."
-)
-
-# ── Muscle group selector (grouped by category) ───────────────────────────────
-_prev_sel_key = "_mg_selection"
-if _prev_sel_key not in st.session_state:
-    st.session_state[_prev_sel_key] = list(_DEFAULT_SELECTED)
-
-chosen_muscles = []
-for cat_name, cat_mgs in _MG_CATEGORIES.items():
-    st.markdown(f"**{cat_name}**")
-    cols_mg = st.columns(len(cat_mgs))
-    for col, mg in zip(cols_mg, cat_mgs):
-        indirect_note = _INDIRECT.get(mg)
-        icon = RP_VOLUMES[mg].get("icon", "💪")
-        label = f"{icon} {mg}"
-        default_checked = mg in st.session_state[_prev_sel_key]
-        checked = col.checkbox(label, value=default_checked, key=f"mg_cb_{mg}",
-                               help=indirect_note or "Wird direkt trainiert")
-        if checked:
-            chosen_muscles.append(mg)
-
-st.session_state[_prev_sel_key] = chosen_muscles
-
-# Show which selected muscles have indirect coverage note
-_indirect_selected = [mg for mg in MUSCLE_GROUPS if mg not in chosen_muscles and mg in _INDIRECT]
-if _indirect_selected:
-    st.caption(
-        "**Indirekt mittrainiert** (nicht explizit im Plan): "
-        + " · ".join(f"{RP_VOLUMES[m].get('icon','')} {m}" for m in _indirect_selected)
+    _default_type_idx = 0 if rec_type == "hypertrophy" else 1
+    meso_type = st.radio(
+        "Trainingstyp",
+        options=["hypertrophy", "strength"],
+        format_func=lambda x: (
+            "💪 Hypertrophie — viel Volumen, 8–12 Wdh., Muskelaufbau"
+            if x == "hypertrophy"
+            else "🏋️ Kraft — schwere Gewichte, 3–6 Wdh., 1RM steigern"
+        ),
+        horizontal=True,
+        index=_default_type_idx,
+        key="meso_type_select",
     )
 
-if not chosen_muscles:
-    st.warning("Bitte mindestens eine Muskelgruppe auswählen.")
-    st.stop()
+    # Makrozyklus-Empfehlung kompakt
+    done_mesos = [m for m in all_mesos if m["status"] in ("completed", "active", "deload")]
+    if done_mesos:
+        icons = " › ".join(
+            ("💪" if (m.get("meso_type") or "hypertrophy") == "hypertrophy" else "🏋️") + " " + m["name"]
+            for m in sorted(done_mesos, key=lambda x: x.get("created_at", ""))[-5:]
+        ) + " › **Jetzt**"
+        st.caption(f"{rec_title}  ·  {rec_text}")
+        st.caption(icons)
+    else:
+        st.caption(f"{rec_title}  ·  {rec_text}")
 
-# ── Priority muscles ──────────────────────────────────────────────────────────
-st.markdown("**Priorität (optional)** — welche 2 Muskelgruppen sollen bevorzugt werden?")
-st.caption(
-    "Priorisierte Muskeln erhalten höhere Trainingsfrequenz, stehen am Anfang jeder Session "
-    "und starten näher an MAV statt MEV."
-)
-priority_muscles = st.multiselect(
-    "Bis zu 2 Muskelgruppen priorisieren",
-    options=chosen_muscles,
-    default=[m for m in st.session_state.get("_priority_muscles", []) if m in chosen_muscles],
-    max_selections=2,
-    format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
-    key="priority_muscles_select",
-    label_visibility="collapsed",
-)
-st.session_state["_priority_muscles"] = priority_muscles
+    if meso_type == "strength":
+        st.info(
+            "**Kraft-Meso:** Geringeres Volumen (nahe MEV), hohe Intensität (80–95 % 1RM), 3–6 Wdh. "
+            "Steigert das 1RM → im nächsten Hypertrophie-Meso kannst du mit mehr Gewicht bei gleichem Volumen trainieren.",
+        )
 
-# ── Reset edit cache on change ────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+# SCHRITT 2 · MUSKELGRUPPEN & TRAININGSTAGE
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("### Schritt 2 · Muskelgruppen & Trainingstage")
+with st.container(border=True):
+
+    n_days = st.select_slider(
+        "Wie viele Tage pro Woche möchtest du trainieren?",
+        options=[2, 3, 4, 5, 6],
+        value=st.session_state.get("n_days_select", 4),
+        format_func=lambda x: f"{x} Tage / Woche",
+        key="n_days_select",
+    )
+
+    st.markdown("**Welche Muskelgruppen möchtest du direkt trainieren?**")
+    st.caption(
+        "Nicht angehakte Muskeln werden durch Compound-Übungen indirekt mittrainiert — "
+        "für viele reicht das aus. Fahre über die ⓘ für Details."
+    )
+
+    if "_mg_selection" not in st.session_state:
+        st.session_state["_mg_selection"] = list(_DEFAULT_SELECTED)
+
+    chosen_muscles: list[str] = []
+    cat_cols = st.columns(len(_MG_CATEGORIES))
+    for col, (cat_name, cat_mgs) in zip(cat_cols, _MG_CATEGORIES.items()):
+        with col:
+            st.markdown(f"**{cat_name}**")
+            for mg in cat_mgs:
+                icon = RP_VOLUMES[mg].get("icon", "💪")
+                hint = _INDIRECT.get(mg, "Wird direkt trainiert")
+                checked = col.checkbox(
+                    f"{icon} {mg}",
+                    value=mg in st.session_state["_mg_selection"],
+                    key=f"mg_cb_{mg}",
+                    help=hint,
+                )
+                if checked:
+                    chosen_muscles.append(mg)
+
+    st.session_state["_mg_selection"] = chosen_muscles
+
+    indirect_shown = [mg for mg in MUSCLE_GROUPS if mg not in chosen_muscles and mg in _INDIRECT]
+    if indirect_shown:
+        st.caption(
+            "Indirekt mittrainiert: "
+            + "  ·  ".join(f"{RP_VOLUMES[m].get('icon','')} {m}" for m in indirect_shown)
+        )
+
+    if not chosen_muscles:
+        st.warning("Bitte mindestens eine Muskelgruppe auswählen.")
+        st.stop()
+
+    st.divider()
+
+    st.markdown("**Priorität** *(optional)*")
+    st.caption(
+        "Bis zu 2 Muskelgruppen die du bevorzugt entwickeln möchtest. "
+        "Sie werden häufiger trainiert, stehen am Anfang jeder Session "
+        "und starten näher am optimalen Trainingsvolumen (MAV)."
+    )
+    priority_muscles = st.multiselect(
+        "Muskelgruppen priorisieren",
+        options=chosen_muscles,
+        default=[m for m in st.session_state.get("_priority_muscles", []) if m in chosen_muscles],
+        max_selections=2,
+        format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
+        key="priority_muscles_select",
+        label_visibility="collapsed",
+    )
+    st.session_state["_priority_muscles"] = priority_muscles
+
+# Konfigurationsänderung → Split-Anpassungen zurücksetzen
 _config_key = (n_days, tuple(chosen_muscles), tuple(priority_muscles))
 if st.session_state.get("_last_config") != _config_key:
     for k in list(st.session_state.keys()):
-        if k.startswith("edit_") or k.startswith("sort_state_"):
+        if k.startswith(("edit_", "sort_state_", "rename_", "n_ex_", "ex_")):
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
 
-# ── Generate split from selected muscles ─────────────────────────────────────
+# Auto-Split berechnen
 _auto_days, _auto_order = auto_generate_split(n_days, chosen_muscles, priority_muscles)
-# Remove empty days
-_auto_days = {d: mgs for d, mgs in _auto_days.items() if mgs}
-_auto_order = [d for d in _auto_order if d in _auto_days]
+_auto_days   = {d: mgs for d, mgs in _auto_days.items() if mgs}
+_auto_order  = [d for d in _auto_order if d in _auto_days]
 
-# ── Customise (optional) ──────────────────────────────────────────────────────
-try:
-    from streamlit_sortables import sort_items
-    _has_sortables = True
-except ImportError:
-    _has_sortables = False
+# Aktuellen Split aus Session-State laden (persistiert Nutzer-Anpassungen)
+split_days: dict[str, list] = {}
+split_order: list[str] = []
+for dn in _auto_order:
+    auto_mgs = [m for m in _auto_days.get(dn, []) if m in chosen_muscles]
+    cur_mgs  = [m for m in st.session_state.get(f"sort_state_{dn}", auto_mgs) if m in chosen_muscles]
+    split_days[dn]  = cur_mgs
+    split_order.append(dn)
 
-with st.expander("🔧 Split anpassen (optional)", expanded=False):
-    edited_days = {}
-    edited_order = []
-    for day_name in _auto_order:
-        # Use session state to persist user's drag changes across reruns
-        _state_key = f"sort_state_{day_name}"
-        auto_day_muscles = [m for m in _auto_days.get(day_name, []) if m in chosen_muscles]
-        day_muscles = [m for m in st.session_state.get(_state_key, auto_day_muscles) if m in chosen_muscles]
-        bench_muscles = [m for m in chosen_muscles if m not in day_muscles]
+# ════════════════════════════════════════════════════════════════════════════
+# SCHRITT 3 · TRAININGSAUFTEILUNG
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("### Schritt 3 · Trainingsaufteilung")
 
-        new_name = st.text_input(
-            "Tag-Name", value=day_name, key=f"rename_{day_name}",
-        ).strip() or day_name
-
-        if _has_sortables:
-            st.caption("Ziehen zum Verschieben — links = im Training, rechts = nicht an dem Tag")
-            result = sort_items(
-                [
-                    {"header": "Im Training", "items": list(day_muscles)},
-                    {"header": "Nicht an dem Tag", "items": list(bench_muscles)},
-                ],
-                multi_containers=True,
-                key=f"sort_{day_name}",
-            )
-            chosen_day = [m for m in result[0] if m in chosen_muscles]
-            st.session_state[_state_key] = chosen_day
-        else:
-            chosen_day = st.multiselect(
-                "Muskelgruppen", options=chosen_muscles, default=day_muscles,
-                key=f"edit_{day_name}", label_visibility="collapsed",
-            )
-            st.session_state[_state_key] = chosen_day
-
-        edited_days[new_name] = chosen_day
-        edited_order.append(new_name)
-        st.divider()
-    split_days = edited_days
-    split_order = edited_order
-
-# ── Split preview + Frequenz-Analyse (aus finalem split_days) ────────────────
 freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs) for mg in chosen_muscles}
 
-_SPLIT_NAMES = {2: "Full Body", 3: "Push/Pull/Legs", 4: "Upper/Lower", 5: "Upper/Lower+", 6: "PPL×2"}
-st.markdown(f"**Dein Split — {_SPLIT_NAMES.get(n_days, '')} ({n_days} Tage):**")
-preview_cols = st.columns(min(len(split_days), 3))
-for i, (day_name, muscles) in enumerate(split_days.items()):
-    with preview_cols[i % len(preview_cols)]:
-        icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in muscles)
-        n_sets_est = sum(
-            max(1, round(RP_VOLUMES.get(mg, {}).get("MEV", 6) / max(freq_actual.get(mg, 1), 1)))
-            for mg in muscles
-        )
-        st.info(
-            f"**{day_name}**\n\n{icons}\n\n"
-            + "\n".join(f"• {mg}" for mg in muscles)
-            + f"\n\n~{n_sets_est} Sets"
-        )
-
 with st.container(border=True):
-    st.markdown("**Frequenz-Analyse:**")
-    cols_freq = st.columns(4)
+    # Split-Vorschau
+    _SPLIT_NAMES = {2: "Full Body", 3: "Push / Pull / Legs",
+                    4: "Upper / Lower", 5: "Upper / Lower +", 6: "PPL × 2"}
+    st.markdown(f"**{_SPLIT_NAMES.get(n_days, '')} · {n_days} Tage**")
+
+    preview_cols = st.columns(min(len(split_days), 3))
+    for i, (dn, mgs) in enumerate(split_days.items()):
+        with preview_cols[i % len(preview_cols)]:
+            icons = " ".join(RP_VOLUMES.get(mg, {}).get("icon", "💪") for mg in mgs)
+            n_sets_est = sum(
+                max(1, round(RP_VOLUMES.get(mg, {}).get("MEV", 6)
+                             / max(freq_actual.get(mg, 1), 1)))
+                for mg in mgs
+            )
+            st.info(
+                f"**{dn}**\n\n{icons}\n\n"
+                + "\n".join(f"• {mg}" for mg in mgs)
+                + f"\n\n≈ {n_sets_est} Sets"
+            )
+
+    # Frequenz-Analyse
+    st.markdown("**Frequenz-Analyse**")
+    st.caption(
+        "MEV/MAV/MRV = Mindest- / Optimal- / Maximalvolumen pro Woche. "
+        "🟢 Frequenz OK · 🟡 knapp · 🔴 zu wenig für optimales Wachstum."
+    )
+    freq_cols = st.columns(min(len(chosen_muscles), 4))
     for i, mg in enumerate(chosen_muscles):
-        rec    = RP_VOLUMES[mg]["freq_per_week"]
-        actual = freq_actual[mg]
-        icon_freq, label_freq = _freq_status(actual, rec)
+        rec = RP_VOLUMES[mg]["freq_per_week"]
+        badge = _freq_badge(freq_actual[mg], rec)
         icon_mg = RP_VOLUMES[mg].get("icon", "💪")
-        cols_freq[i % 4].markdown(
-            f"{icon_freq} **{icon_mg} {mg}**  \n"
-            f"<span style='color:#888;font-size:0.8rem'>{label_freq}</span>",
+        freq_cols[i % 4].markdown(
+            f"**{icon_mg} {mg}**  \n"
+            f"<span style='font-size:0.8rem;color:#888'>{badge}</span>",
             unsafe_allow_html=True,
         )
 
-selected_template_name = f"Auto {n_days}d"
-selected_muscles = list(dict.fromkeys(mg for mgs in split_days.values() for mg in mgs))
+    st.divider()
 
+    # Anpassung (optional)
+    with st.expander("✏️ Aufteilung anpassen", expanded=False):
+        st.caption(
+            "Hier kannst du Muskeln zwischen Tagen verschieben und Tage umbenennen. "
+            "Die Reihenfolge in der Auswahl bestimmt auch die Reihenfolge im Training."
+        )
+        new_split: dict[str, list] = {}
+        new_order: list[str] = []
+        changed = False
+
+        for dn in _auto_order:
+            cur_mgs = split_days.get(dn, [])
+            lc, rc = st.columns([1, 3])
+            with lc:
+                new_name = st.text_input(
+                    "Tag-Name",
+                    value=dn,
+                    key=f"rename_{dn}",
+                    label_visibility="collapsed",
+                    placeholder="Tag-Name",
+                ).strip() or dn
+            with rc:
+                chosen_day = st.multiselect(
+                    f"Muskelgruppen an {new_name}",
+                    options=chosen_muscles,
+                    default=[m for m in cur_mgs if m in chosen_muscles],
+                    key=f"edit_{dn}",
+                    format_func=lambda m: f"{RP_VOLUMES[m].get('icon','💪')} {m}",
+                    label_visibility="collapsed",
+                )
+            if chosen_day != cur_mgs or new_name != dn:
+                changed = True
+            st.session_state[f"sort_state_{dn}"] = chosen_day
+            new_split[new_name] = chosen_day
+            new_order.append(new_name)
+
+        if changed:
+            split_days  = new_split
+            split_order = new_order
+            freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
+                           for mg in chosen_muscles}
+
+selected_muscles = list(dict.fromkeys(mg for mgs in split_days.values() for mg in mgs))
 if not selected_muscles:
-    st.warning("Keine Muskelgruppen definiert.")
+    st.warning("Keine Muskelgruppen im Plan — bitte Aufteilung anpassen.")
     st.stop()
 
-st.divider()
-
-# ── Step 3: Übungsaufteilung ──────────────────────────────────────────────────
-st.subheader("3. Übungsaufteilung")
+# ════════════════════════════════════════════════════════════════════════════
+# SCHRITT 4 · ÜBUNGSAUSWAHL
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("### Schritt 4 · Übungsauswahl")
 st.caption(
-    "Pro Muskelgruppe wird automatisch die beste Übung pro Tag gewählt (🟢 = hoher SFR). "
-    "Bei mehrfachem Training pro Woche werden verschiedene Übungen für verschiedene Winkel verwendet."
+    "Für jede Muskelgruppe wird automatisch die beste Übung vorausgewählt. "
+    "🟢 = hoher SFR (viel Stimulus, wenig Erschöpfung) · 🟡 = mittel. "
+    "Du kannst jederzeit eine andere Übung wählen oder mehrere kombinieren."
 )
-
-with st.expander("ℹ️ Was bedeuten MEV, MAV, MRV?", expanded=False):
-    st.markdown("""
-| Begriff | Bedeutung | Praxis |
-|---------|-----------|--------|
-| **MEV** | Mindestanzahl Sätze/Woche damit der Muskel wächst | Startpunkt nach Deload |
-| **MAV** | Optimaler Bereich für maximales Wachstum | Ziel-Bereich im Meso |
-| **MRV** | Maximale Sätze die du noch erholen kannst | Nie dauerhaft überschreiten |
-""")
 
 calibrated = {mg: get_calibrated_volumes(mg) for mg in selected_muscles}
 
-# ── Auto-assign: best exercise per muscle per day ─────────────────────────────
-# Build ordered exercise pool per muscle (high SFR first)
-_ex_pool = {}
+_ex_pool: dict[str, list] = {}
 for mg in selected_muscles:
     high = [e["name"] for e in EXERCISES.get(mg, []) if e["sfr"] == "high"]
     med  = [e["name"] for e in EXERCISES.get(mg, []) if e["sfr"] != "high"]
     _ex_pool[mg] = high + med
 
-# For each muscle, map day → suggested exercise (rotate through pool)
-_muscle_day_order = {}  # {mg: [day1, day2, ...]} in split_order sequence
+_muscle_day_order: dict[str, list] = {}
 for day in split_order:
     for mg in split_days.get(day, []):
         _muscle_day_order.setdefault(mg, []).append(day)
 
-_auto_ex = {}  # {mg: {day: suggested_exercise}}
-for mg, days in _muscle_day_order.items():
-    pool = _ex_pool.get(mg, [])
-    _auto_ex[mg] = {}
-    for i, day in enumerate(days):
-        _auto_ex[mg][day] = pool[i % len(pool)] if pool else ""
-
-# ── UI: tab per training day ──────────────────────────────────────────────────
-day_ex_choices = {}  # {day: {mg: [exercise, ...]}}
-
+day_ex_choices: dict[str, dict] = {}
 day_tabs = st.tabs(split_order)
+
 for tab, day in zip(day_tabs, split_order):
     with tab:
         day_muscles = split_days.get(day, [])
         if not day_muscles:
-            st.caption("Keine Muskelgruppen an diesem Tag.")
+            st.caption("Keine Muskelgruppen für diesen Tag definiert.")
             continue
 
         day_ex_choices[day] = {}
-        cols = st.columns(2)
-        for i, mg in enumerate(day_muscles):
-            cal  = calibrated[mg]
-            vol  = RP_VOLUMES.get(mg, {})
-            icon = vol.get("icon", "💪")
-            sfr_map = {e["name"]: e["sfr"] for e in EXERCISES.get(mg, [])}
-            all_opts = _ex_pool.get(mg, [])
-            freq = len(_muscle_day_order.get(mg, [day]))
 
+        for mg in day_muscles:
+            cal      = calibrated[mg]
+            vol      = RP_VOLUMES.get(mg, {})
+            icon     = vol.get("icon", "💪")
+            all_opts = _ex_pool.get(mg, [])
+            sfr_map  = {e["name"]: e["sfr"] for e in EXERCISES.get(mg, [])}
             trains_on = _muscle_day_order.get(mg, [day])
-            freq_idx  = trains_on.index(day) + 1
-            auto_pick = _auto_ex.get(mg, {}).get(day, all_opts[0] if all_opts else "")
+            freq      = len(trains_on)
+            freq_idx  = (trains_on.index(day) + 1) if day in trains_on else 1
+
+            is_prio = mg in priority_muscles
+            if meso_type == "strength":
+                start_sets = max(cal["MEV"], 3)
+            else:
+                start_sets = (
+                    max(cal["recommended_start"], cal.get("MAV_low", cal["recommended_start"]))
+                    if is_prio else cal["recommended_start"]
+                )
+            sets_per_session = max(1, round(start_sets / freq))
 
             mev   = cal.get("MEV",      vol.get("MEV", "?"))
             mav_l = cal.get("MAV_low",  vol.get("MAV_low", "?"))
             mav_h = cal.get("MAV_high", vol.get("MAV_high", "?"))
             mrv   = cal.get("MRV",      vol.get("MRV", "?"))
 
-            is_prio = mg in priority_muscles
-            if meso_type == "strength":
-                start_sets = max(cal["MEV"], 3)
-            else:
-                start_sets = (max(cal["recommended_start"], cal.get("MAV_low", cal["recommended_start"]))
-                              if is_prio else cal["recommended_start"])
-            sets_per_session = max(1, round(start_sets / freq))
-
-            freq_label = f"Training {freq_idx}/{freq}" if freq > 1 else ""
             prio_badge = " ⭐" if is_prio else ""
+            freq_label = f" · Training {freq_idx}/{freq}" if freq > 1 else ""
 
-            with cols[i % 2]:
-                st.markdown(
-                    f"**{icon} {mg}{prio_badge}**"
-                    + (f" <span style='color:#888;font-size:0.8rem'>({freq_label})</span>" if freq_label else ""),
-                    unsafe_allow_html=True,
-                )
+            with st.container(border=True):
+                h_col, meta_col = st.columns([3, 2])
+                with h_col:
+                    st.markdown(f"**{icon} {mg}{prio_badge}**{freq_label}")
+                with meta_col:
+                    st.caption(
+                        f"MEV {mev} · MAV {mav_l}–{mav_h} · MRV {mrv} · "
+                        f"**{sets_per_session} Sets/Session**"
+                    )
 
-                # How many exercises to use for this muscle this session
+                if not all_opts:
+                    st.warning("Keine Übungen im Katalog für diese Muskelgruppe.")
+                    day_ex_choices[day][mg] = []
+                    continue
+
                 max_ex = min(3, len(all_opts))
-                # Auto-suggest 2 exercises when ≥ 5 sets/session
                 default_n_ex = 2 if sets_per_session >= 5 and max_ex >= 2 else 1
-                n_ex = st.radio(
-                    "Übungen",
-                    options=list(range(1, max_ex + 1)),
-                    index=default_n_ex - 1,
-                    horizontal=True,
-                    key=f"n_ex_{day}_{mg}",
-                    format_func=lambda x: f"{x} Übung{'en' if x > 1 else ''}",
-                    label_visibility="collapsed",
-                )
 
-                # Show set distribution info
-                sets_each = [sets_per_session // n_ex + (1 if j < sets_per_session % n_ex else 0)
-                             for j in range(n_ex)]
-                st.caption(
-                    f"MEV {mev} / MAV {mav_l}–{mav_h} / MRV {mrv} · "
-                    f"{sets_per_session} Sets/Session"
-                    + (f" → {' + '.join(str(s) for s in sets_each)} Sets" if n_ex > 1 else "")
-                )
+                radio_col, *ex_cols = st.columns([1] + [3] * max_ex)
+                with radio_col:
+                    n_ex = st.radio(
+                        "Anz. Übungen",
+                        options=list(range(1, max_ex + 1)),
+                        index=default_n_ex - 1,
+                        key=f"n_ex_{day}_{mg}",
+                        format_func=lambda x: f"{x}×",
+                        label_visibility="collapsed",
+                    )
+
+                sets_each = [
+                    sets_per_session // n_ex + (1 if j < sets_per_session % n_ex else 0)
+                    for j in range(n_ex)
+                ]
 
                 chosen_exs = []
                 for ex_idx in range(n_ex):
-                    # Suggest different exercises per slot (rotate pool)
-                    pool_idx = (trains_on.index(day) + ex_idx) % len(all_opts) if all_opts else 0
-                    fallback = all_opts[pool_idx] if all_opts else ""
-                    sel = st.selectbox(
-                        f"Übung {ex_idx + 1}",
-                        options=all_opts,
-                        index=all_opts.index(fallback) if fallback in all_opts else 0,
-                        key=f"ex_{day}_{mg}_{ex_idx}",
-                        label_visibility="collapsed",
-                        format_func=lambda x: f"{'🟢' if sfr_map.get(x)=='high' else '🟡'} {x}",
-                    )
-                    chosen_exs.append(sel)
+                    pool_offset = trains_on.index(day) if day in trains_on else 0
+                    pool_idx    = (pool_offset + ex_idx) % len(all_opts)
+                    fallback    = all_opts[pool_idx]
+                    _sfr_map    = sfr_map  # capture for lambda
+                    with ex_cols[ex_idx]:
+                        sel = st.selectbox(
+                            f"{sets_each[ex_idx]} Sets",
+                            options=all_opts,
+                            index=all_opts.index(fallback) if fallback in all_opts else 0,
+                            key=f"ex_{day}_{mg}_{ex_idx}",
+                            format_func=lambda x, sm=_sfr_map: (
+                                f"{'🟢' if sm.get(x) == 'high' else '🟡'} {x}"
+                            ),
+                        )
+                        chosen_exs.append(sel)
 
                 day_ex_choices[day][mg] = chosen_exs
 
-# ── Collect into muscle_configs (exercises ordered by day-rotation) ───────────
-muscle_configs = {}
+# Muscle-Configs zusammenbauen
+muscle_configs: dict[str, dict] = {}
 for mg in selected_muscles:
     cal  = calibrated[mg]
-    vol  = RP_VOLUMES.get(mg, {})
     days = _muscle_day_order.get(mg, [])
     freq = len(days) if days else 1
 
-    is_priority = mg in priority_muscles
+    is_prio = mg in priority_muscles
     if meso_type == "strength":
         start_sets = max(cal["MEV"], 3)
         progression = [start_sets] * weeks
     else:
-        if is_priority:
-            # Priority: start at MAV_low instead of recommended_start, progress faster
-            start_sets = max(cal["recommended_start"], cal.get("MAV_low", cal["recommended_start"]))
-        else:
-            start_sets = cal["recommended_start"]
-        progression = [min(start_sets + (w-1)*2, cal["MRV"]) for w in range(1, weeks+1)]
+        start_sets = (
+            max(cal["recommended_start"], cal.get("MAV_low", cal["recommended_start"]))
+            if is_prio else cal["recommended_start"]
+        )
+        progression = [min(start_sets + (w - 1) * 2, cal["MRV"]) for w in range(1, weeks + 1)]
 
-    # Flatten: [ex_day1_slot1, ex_day1_slot2, ex_day2_slot1, ...]
-    # Training page rotates through this list by (day_rotation + ex_idx) % len
-    ordered_exercises = []
+    ordered_exercises: list[str] = []
     for d in days:
         ex_list = day_ex_choices.get(d, {}).get(mg, [])
         if isinstance(ex_list, list):
-            ordered_exercises.extend([e for e in ex_list if e])
+            ordered_exercises.extend(e for e in ex_list if e)
         elif ex_list:
             ordered_exercises.append(ex_list)
     if not ordered_exercises:
-        ordered_exercises = [_ex_pool.get(mg, [""])[0]]
+        pool = _ex_pool.get(mg, [])
+        ordered_exercises = [pool[0]] if pool else [""]
 
     muscle_configs[mg] = {
         "start_sets": start_sets,
-        "exercises": ordered_exercises,
-        "cal": cal,
+        "exercises":  ordered_exercises,
         "progression": progression,
     }
 
-st.divider()
+# ════════════════════════════════════════════════════════════════════════════
+# ZUSAMMENFASSUNG & ERSTELLEN
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("### Zusammenfassung")
+with st.container(border=True):
+    total_w1   = sum(c["start_sets"]       for c in muscle_configs.values())
+    total_peak = sum(c["progression"][-1]  for c in muscle_configs.values())
 
-# ── Step 4: Summary ───────────────────────────────────────────────────────────
-st.subheader("4. Zusammenfassung")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Split",         f"{n_days} Tage / Wo.")
+    m2.metric("Trainingstage", len(split_days))
+    m3.metric("Startvolumen",  f"{total_w1} Sets / Wo.")
+    m4.metric("Peakvolumen",   f"{total_peak} Sets / Wo.")
 
-total_w1 = sum(c["start_sets"] for c in muscle_configs.values())
-total_peak = sum(c["progression"][-1] for c in muscle_configs.values())
+    st.divider()
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Split", f"{n_days} Tage/Wo.")
-col2.metric("Trainingstage", len(split_days))
-col3.metric("Startvolumen", f"{total_w1} Sets/Wo.")
-col4.metric("Peakvolumen", f"{total_peak} Sets/Wo.")
+    if not meso_name:
+        st.warning("Bitte einen Namen für den Mesozyklus eingeben.")
+    else:
+        if st.button("✅ Mesozyklus erstellen", type="primary", use_container_width=True):
+            for m in all_mesos:
+                if m["status"] == "active":
+                    update_mesocycle_status(m["id"], "completed")
 
-st.divider()
+            meso_id = create_mesocycle(
+                meso_name, start_date, weeks, weeks + 1, selected_muscles,
+                split_template=f"Auto {n_days}d",
+                split_days=split_days,
+                split_order=split_order,
+                user_id=get_effective_user_id(),
+                meso_type=meso_type,
+            )
 
-if st.button("✅ Mesozyklus erstellen", type="primary", disabled=not meso_name):
-    for m in all_mesos:
-        if m["status"] == "active":
-            update_mesocycle_status(m["id"], "completed")
+            for mg, cfg in muscle_configs.items():
+                save_muscle_config(meso_id, mg, cfg["start_sets"], cfg["exercises"])
 
-    meso_id = create_mesocycle(
-        meso_name, start_date, weeks, weeks + 1, selected_muscles,
-        split_template=selected_template_name,
-        split_days=split_days,
-        split_order=split_order,
-        user_id=get_effective_user_id(),
-        meso_type=meso_type,
-    )
-
-    for mg, cfg in muscle_configs.items():
-        save_muscle_config(meso_id, mg, cfg["start_sets"], cfg["exercises"])
-
-    st.success(f"✅ Mesozyklus **{meso_name}** erfolgreich erstellt!")
-    st.balloons()
-    if st.button("▶ Zum Training"):
-        st.switch_page("pages/2_Training.py")
+            st.success(f"✅ Mesozyklus **{meso_name}** wurde erstellt!")
+            st.balloons()
+            if st.button("▶ Zum Training"):
+                st.switch_page("pages/2_Training.py")
