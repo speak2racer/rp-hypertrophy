@@ -340,8 +340,6 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
     edited_order = []
     for day_name in _auto_order:
         day_muscles = _auto_days.get(day_name, [])
-        order_key = f"edit_order_{day_name}"
-
         col_name, col_muscles = st.columns([2, 5])
         new_name = col_name.text_input(
             "Tag-Name", value=day_name, key=f"rename_{day_name}",
@@ -352,25 +350,8 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
             key=f"edit_{day_name}", label_visibility="collapsed",
         )
 
-        current_order = st.session_state.get(order_key, day_muscles)
-        synced = [m for m in current_order if m in chosen_day] + \
-                 [m for m in chosen_day if m not in current_order]
-        st.session_state[order_key] = synced
-        if len(synced) > 1:
-            for j, mg in enumerate(synced):
-                mg_icon = RP_VOLUMES.get(mg, {}).get("icon", "💪")
-                c_num, c_name, c_up, c_dn = st.columns([1, 6, 1, 1])
-                c_num.markdown(f"<div style='padding-top:6px;color:#555'>{j+1}.</div>", unsafe_allow_html=True)
-                c_name.markdown(f"<div style='padding-top:6px'>{mg_icon} {mg}</div>", unsafe_allow_html=True)
-                if j > 0 and c_up.button("↑", key=f"up_{day_name}_{j}"):
-                    synced[j], synced[j-1] = synced[j-1], synced[j]
-                    st.session_state[order_key] = synced
-                    st.rerun()
-                if j < len(synced) - 1 and c_dn.button("↓", key=f"down_{day_name}_{j}"):
-                    synced[j], synced[j+1] = synced[j+1], synced[j]
-                    st.session_state[order_key] = synced
-                    st.rerun()
-        edited_days[new_name] = synced
+        # Multiselect preserves selection order — that IS the training order
+        edited_days[new_name] = chosen_day
         edited_order.append(new_name)
         st.divider()
     split_days = edited_days
