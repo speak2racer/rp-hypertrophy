@@ -314,26 +314,19 @@ if st.session_state.get("_last_config") != _config_key:
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
 
-try:
-    from streamlit_sortables import sort_items as _sort_items
-    _has_sortables = True
-except ImportError:
-    _has_sortables = False
-
 # Initialwerte: beim ersten Laden aus Auto-Split befüllen, danach aus session_state
 _auto_days, _auto_order = auto_generate_split(n_days, chosen_muscles, priority_muscles)
 _auto_days  = {d: mgs for d, mgs in _auto_days.items() if mgs}
 _auto_order = [d for d in _auto_order if d in _auto_days]
 
-# Feste Slot-Keys für n_days Tage (unabhängig von Tagnamen)
+# Feste Slot-Keys für n_days Tage — intern immer eindeutig, unabhängig vom Tagnamen
 _slot_keys = [f"slot_{i}" for i in range(n_days)]
 
-# Initialbefüllung: nur wenn noch kein Zustand gespeichert
 for i, sk in enumerate(_slot_keys):
     if f"day_name_{sk}" not in st.session_state:
-        _default_dn = _auto_order[i] if i < len(_auto_order) else f"Tag {i + 1}"
+        _default_dn  = _auto_order[i] if i < len(_auto_order) else f"Tag {i + 1}"
         _default_mgs = [m for m in _auto_days.get(_default_dn, []) if m in chosen_muscles]
-        st.session_state[f"day_name_{sk}"] = _default_dn
+        st.session_state[f"day_name_{sk}"]  = _default_dn
         st.session_state[f"sort_state_{sk}"] = _default_mgs
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -341,12 +334,14 @@ for i, sk in enumerate(_slot_keys):
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("### Schritt 3 · Trainingsaufteilung")
 st.caption(
-    "Weise jedem Trainingstag beliebige Muskelgruppen zu. "
-    + ("Reihenfolge per Drag & Drop anpassen." if _has_sortables else "")
+    "Weise jedem Tag beliebige Muskelgruppen zu. "
+    "Die Reihenfolge der Auswahl bestimmt auch die Trainingsreihenfolge innerhalb des Tages."
 )
 
-split_days: dict[str, list] = {}
-split_order: list[str] = []
+# split_days: Slot-Key → Muskelliste  (intern eindeutig, kein Überschreiben bei gleichem Namen)
+split_days: dict[str, list]  = {}
+split_order: list[str]       = []   # Slot-Keys
+display_names: dict[str, str] = {}  # Slot-Key → Anzeigename
 
 for sk in _slot_keys:
     cur_name = st.session_state.get(f"day_name_{sk}", sk)
@@ -371,25 +366,10 @@ for sk in _slot_keys:
                 label_visibility="collapsed",
             )
 
-        if _has_sortables and len(active) > 1:
-            st.caption("Trainingsreihenfolge (ziehen zum Sortieren):")
-            _skey = f"sort_order_state_{sk}"
-            _prev = st.session_state.get(_skey)
-            _base = (
-                [m for m in _prev if m in active] + [m for m in active if m not in _prev]
-                if _prev is not None else list(active)
-            )
-            ordered = _sort_items(_base, key=f"sort_order_{sk}")
-            if isinstance(ordered, list) and ordered and isinstance(ordered[0], dict):
-                ordered = ordered[0].get("items", _base)
-            chosen_day = [m for m in ordered if m in chosen_muscles]
-            st.session_state[_skey] = chosen_day
-        else:
-            chosen_day = active
-
-    st.session_state[f"sort_state_{sk}"] = chosen_day
-    split_days[new_name]  = chosen_day
-    split_order.append(new_name)
+    st.session_state[f"sort_state_{sk}"] = active
+    split_days[sk]       = active
+    split_order.append(sk)
+    display_names[sk]    = new_name
 
 # ── Frequenz-Analyse ─────────────────────────────────────────────────────────
 freq_actual = {mg: sum(1 for mgs in split_days.values() if mg in mgs)
@@ -453,10 +433,10 @@ with st.container(border=True):
         w1c, w2c = st.columns(2)
         with w1c:
             st.markdown("**Woche 1:**")
-            st.markdown("  →  ".join(f"`{d}`" for d in _woche1))
+            st.markdown("  →  ".join(f"`{display_names.get(d, d)}`" for d in _woche1))
         with w2c:
             st.markdown("**Woche 2:**")
-            st.markdown("  →  ".join(f"`{d}`" for d in _woche2))
+            st.markdown("  →  ".join(f"`{display_names.get(d, d)}`" for d in _woche2))
 
         if alt_days % _n_types == 0:
             st.info(
@@ -495,7 +475,7 @@ for day in split_order:
         _muscle_day_order.setdefault(mg, []).append(day)
 
 day_ex_choices: dict[str, dict] = {}
-day_tabs = st.tabs(split_order)
+day_tabs = st.tabs([display_names.get(sk, sk) for sk in split_order])
 
 for tab, day in zip(day_tabs, split_order):
     with tab:
@@ -648,11 +628,15 @@ with st.container(border=True):
                 if m["status"] == "active":
                     update_mesocycle_status(m["id"], "completed")
 
+            # Konvertiere Slot-Keys zu Display-Namen für die DB
+            _db_split_days  = {display_names.get(sk, sk): mgs for sk, mgs in split_days.items()}
+            _db_split_order = [display_names.get(sk, sk) for sk in stored_split_order]
+
             meso_id = create_mesocycle(
                 meso_name, start_date, weeks, weeks + 1, selected_muscles,
                 split_template=f"Auto {n_days}d",
-                split_days=split_days,
-                split_order=stored_split_order,
+                split_days=_db_split_days,
+                split_order=_db_split_order,
                 user_id=get_effective_user_id(),
                 meso_type=meso_type,
             )
