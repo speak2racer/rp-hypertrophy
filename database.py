@@ -6,6 +6,7 @@ Connection string is read from st.secrets["DATABASE_URL"] or env var DATABASE_UR
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 import streamlit as st
@@ -28,7 +29,7 @@ def _use_postgres() -> bool:
 def _get_pool():
     """Connection pool — created once per Streamlit session, reused across all queries."""
     from psycopg2 import pool
-    return pool.ThreadedConnectionPool(1, 5, _get_database_url())
+    return pool.ThreadedConnectionPool(2, 15, _get_database_url())
 
 
 def get_conn():
@@ -58,6 +59,23 @@ def _commit_and_release(conn):
     conn.commit()
     st.cache_data.clear()
     release_conn(conn)
+
+
+@contextmanager
+def _db_conn():
+    """Context manager: always releases the connection, rolls back on exception."""
+    conn = get_conn()
+    try:
+        yield conn
+    except Exception:
+        if _use_postgres():
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        raise
+    finally:
+        release_conn(conn)
 
 
 def _placeholder():
@@ -357,24 +375,22 @@ def create_mesocycle(name, start_date, weeks, deload_week, muscle_groups,
 @st.cache_data(ttl=30)
 def get_mesocycles(user_id=None):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    if user_id:
-        c.execute(f"SELECT * FROM mesocycles WHERE user_id={p} ORDER BY created_at DESC", (user_id,))
-    else:
-        c.execute("SELECT * FROM mesocycles ORDER BY created_at DESC")
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        if user_id:
+            c.execute(f"SELECT * FROM mesocycles WHERE user_id={p} ORDER BY created_at DESC", (user_id,))
+        else:
+            c.execute("SELECT * FROM mesocycles ORDER BY created_at DESC")
+        rows = _fetchall_as_dicts(c)
     return [_decode_meso(r) for r in rows]
 
 
 def get_mesocycle(meso_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(f"SELECT * FROM mesocycles WHERE id={p}", (meso_id,))
-    row = _fetchone_as_dict(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(f"SELECT * FROM mesocycles WHERE id={p}", (meso_id,))
+        row = _fetchone_as_dict(c)
     return _decode_meso(row) if row else None
 
 
@@ -490,11 +506,10 @@ def save_muscle_config(meso_id, muscle_group, start_sets, exercises):
 @st.cache_data(ttl=30)
 def get_muscle_configs(meso_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(f"SELECT * FROM meso_muscle_config WHERE meso_id={p}", (meso_id,))
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(f"SELECT * FROM meso_muscle_config WHERE meso_id={p}", (meso_id,))
+        rows = _fetchall_as_dicts(c)
     result = {}
     for r in rows:
         r["exercises"] = json.loads(r["exercises"])
@@ -528,38 +543,35 @@ def create_workout(meso_id, workout_date, week_number, notes="", day_name=None):
 def get_last_workout_per_day(meso_id: int) -> dict[str, str]:
     """Returns {day_name: last_date_string} for all days trained in this meso."""
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"SELECT day_name, MAX(date) as last_date FROM workouts "
-        f"WHERE meso_id={p} AND day_name IS NOT NULL GROUP BY day_name",
-        (meso_id,)
-    )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT day_name, MAX(date) as last_date FROM workouts "
+            f"WHERE meso_id={p} AND day_name IS NOT NULL GROUP BY day_name",
+            (meso_id,)
+        )
+        rows = _fetchall_as_dicts(c)
     return {r["day_name"]: r["last_date"] for r in rows}
 
 
 def get_workouts(meso_id=None):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    if meso_id:
-        c.execute(f"SELECT * FROM workouts WHERE meso_id={p} ORDER BY date DESC", (meso_id,))
-    else:
-        c.execute("SELECT * FROM workouts ORDER BY date DESC")
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        if meso_id:
+            c.execute(f"SELECT * FROM workouts WHERE meso_id={p} ORDER BY date DESC", (meso_id,))
+        else:
+            c.execute("SELECT * FROM workouts ORDER BY date DESC")
+        rows = _fetchall_as_dicts(c)
     return rows
 
 
 def get_workout(workout_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(f"SELECT * FROM workouts WHERE id={p}", (workout_id,))
-    row = _fetchone_as_dict(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(f"SELECT * FROM workouts WHERE id={p}", (workout_id,))
+        row = _fetchone_as_dict(c)
     return row
 
 
@@ -580,46 +592,43 @@ def save_set(workout_id, muscle_group, exercise, set_number, weight, reps, rpe,
 
 def get_sets(workout_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"SELECT * FROM sets WHERE workout_id={p} ORDER BY muscle_group, set_number", (workout_id,)
-    )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT * FROM sets WHERE workout_id={p} ORDER BY muscle_group, set_number", (workout_id,)
+        )
+        rows = _fetchall_as_dicts(c)
     return rows
 
 
 def get_all_sets_for_exercise(exercise_name):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"""SELECT s.*, w.date, w.week_number FROM sets s
-           JOIN workouts w ON s.workout_id = w.id
-           WHERE s.exercise={p} ORDER BY w.date""",
-        (exercise_name,)
-    )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"""SELECT s.*, w.date, w.week_number FROM sets s
+               JOIN workouts w ON s.workout_id = w.id
+               WHERE s.exercise={p} ORDER BY w.date""",
+            (exercise_name,)
+        )
+        rows = _fetchall_as_dicts(c)
     return rows
 
 
 @st.cache_data(ttl=30)
 def get_sets_per_muscle_per_week(meso_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"""SELECT s.muscle_group, w.week_number, COUNT(*) as set_count
-           FROM sets s JOIN workouts w ON s.workout_id = w.id
-           WHERE w.meso_id={p}
-           GROUP BY s.muscle_group, w.week_number
-           ORDER BY w.week_number""",
-        (meso_id,)
-    )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"""SELECT s.muscle_group, w.week_number, COUNT(*) as set_count
+               FROM sets s JOIN workouts w ON s.workout_id = w.id
+               WHERE w.meso_id={p}
+               GROUP BY s.muscle_group, w.week_number
+               ORDER BY w.week_number""",
+            (meso_id,)
+        )
+        rows = _fetchall_as_dicts(c)
     return rows
 
 
@@ -648,27 +657,25 @@ def save_feedback(workout_id, muscle_group, pump, soreness, performance, notes="
 
 def get_feedback(workout_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(f"SELECT * FROM session_feedback WHERE workout_id={p}", (workout_id,))
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(f"SELECT * FROM session_feedback WHERE workout_id={p}", (workout_id,))
+        rows = _fetchall_as_dicts(c)
     return rows
 
 
 @st.cache_data(ttl=30)
 def get_all_feedback_for_meso(meso_id):
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"""SELECT f.*, w.date, w.week_number FROM session_feedback f
-           JOIN workouts w ON f.workout_id = w.id
-           WHERE w.meso_id={p} ORDER BY w.date""",
-        (meso_id,)
-    )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"""SELECT f.*, w.date, w.week_number FROM session_feedback f
+               JOIN workouts w ON f.workout_id = w.id
+               WHERE w.meso_id={p} ORDER BY w.date""",
+            (meso_id,)
+        )
+        rows = _fetchall_as_dicts(c)
     return rows
 
 
@@ -695,41 +702,38 @@ def save_ten_rm(exercise: str, weight: float, user_id=None):
 @st.cache_data(ttl=60)
 def get_ten_rm(exercise: str, user_id=None) -> float | None:
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    if user_id is None:
-        c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id IS NULL", (exercise,))
-    else:
-        c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
-    row = c.fetchone()
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        if user_id is None:
+            c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id IS NULL", (exercise,))
+        else:
+            c.execute(f"SELECT weight FROM ten_rm WHERE exercise={p} AND user_id={p}", (exercise, user_id))
+        row = c.fetchone()
     return row[0] if row else None
 
 
 def get_last_sets_for_muscle(meso_id: int, muscle_group: str, day_name: str | None = None) -> list:
     """Returns sets from the most recent workout that trained this muscle group (same day if given)."""
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    if day_name:
-        c.execute(
-            f"""SELECT w.date, w.week_number, s.exercise, s.weight, s.reps, s.rpe
-               FROM sets s JOIN workouts w ON s.workout_id = w.id
-               WHERE w.meso_id={p} AND s.muscle_group={p} AND w.day_name={p}
-               ORDER BY w.date DESC, w.id DESC LIMIT 20""",
-            (meso_id, muscle_group, day_name)
-        )
-    else:
-        c.execute(
-            f"""SELECT w.date, w.week_number, s.exercise, s.weight, s.reps, s.rpe
-               FROM sets s JOIN workouts w ON s.workout_id = w.id
-               WHERE w.meso_id={p} AND s.muscle_group={p}
-               ORDER BY w.date DESC, w.id DESC LIMIT 20""",
-            (meso_id, muscle_group)
-        )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
-    # Only keep sets from the single most recent workout date
+    with _db_conn() as conn:
+        c = conn.cursor()
+        if day_name:
+            c.execute(
+                f"""SELECT w.date, w.week_number, s.exercise, s.weight, s.reps, s.rpe
+                   FROM sets s JOIN workouts w ON s.workout_id = w.id
+                   WHERE w.meso_id={p} AND s.muscle_group={p} AND w.day_name={p}
+                   ORDER BY w.date DESC, w.id DESC LIMIT 20""",
+                (meso_id, muscle_group, day_name)
+            )
+        else:
+            c.execute(
+                f"""SELECT w.date, w.week_number, s.exercise, s.weight, s.reps, s.rpe
+                   FROM sets s JOIN workouts w ON s.workout_id = w.id
+                   WHERE w.meso_id={p} AND s.muscle_group={p}
+                   ORDER BY w.date DESC, w.id DESC LIMIT 20""",
+                (meso_id, muscle_group)
+            )
+        rows = _fetchall_as_dicts(c)
     if not rows:
         return []
     latest_date = rows[0]["date"]
@@ -740,18 +744,17 @@ def get_last_sets_for_muscle(meso_id: int, muscle_group: str, day_name: str | No
 def get_last_feedback_per_muscle(meso_id: int) -> dict:
     """Returns the most recent feedback entry per muscle group for a mesocycle."""
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"""SELECT f.muscle_group, f.pump, f.soreness, f.performance, w.date, w.week_number
-           FROM session_feedback f
-           JOIN workouts w ON f.workout_id = w.id
-           WHERE w.meso_id={p}
-           ORDER BY w.date DESC, w.id DESC""",
-        (meso_id,)
-    )
-    rows = _fetchall_as_dicts(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"""SELECT f.muscle_group, f.pump, f.soreness, f.performance, w.date, w.week_number
+               FROM session_feedback f
+               JOIN workouts w ON f.workout_id = w.id
+               WHERE w.meso_id={p}
+               ORDER BY w.date DESC, w.id DESC""",
+            (meso_id,)
+        )
+        rows = _fetchall_as_dicts(c)
     seen = {}
     for r in rows:
         mg = r["muscle_group"]
@@ -763,14 +766,13 @@ def get_last_feedback_per_muscle(meso_id: int) -> dict:
 @st.cache_data(ttl=60)
 def get_all_ten_rms(user_id=None) -> dict[str, float]:
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    if user_id:
-        c.execute(f"SELECT exercise, weight FROM ten_rm WHERE user_id={p}", (user_id,))
-    else:
-        c.execute("SELECT exercise, weight FROM ten_rm")
-    rows = c.fetchall()
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        if user_id:
+            c.execute(f"SELECT exercise, weight FROM ten_rm WHERE user_id={p}", (user_id,))
+        else:
+            c.execute("SELECT exercise, weight FROM ten_rm")
+        rows = c.fetchall()
     return {r[0]: r[1] for r in rows}
 
 
@@ -784,23 +786,21 @@ def create_session(user_id: int, token: str):
 
 def get_user_by_token(token: str) -> dict | None:
     p = _placeholder()
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        f"SELECT u.id, u.username, u.is_admin FROM users u JOIN sessions s ON u.id=s.user_id WHERE s.token={p}",
-        (token,)
-    )
-    row = _fetchone_as_dict(c)
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT u.id, u.username, u.is_admin FROM users u JOIN sessions s ON u.id=s.user_id WHERE s.token={p}",
+            (token,)
+        )
+        row = _fetchone_as_dict(c)
     return row
 
 
 def get_all_users() -> list[dict]:
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, username, is_admin FROM users ORDER BY username")
-    rows = c.fetchall()
-    release_conn(conn)
+    with _db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, username, is_admin FROM users ORDER BY username")
+        rows = c.fetchall()
     if rows and hasattr(rows[0], "keys"):
         return [dict(r) for r in rows]
     cols = ["id", "username", "is_admin"]

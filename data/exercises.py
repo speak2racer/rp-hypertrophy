@@ -5,6 +5,7 @@ EXERCISES = {
         {"name": "Low-to-High Cable Fly", "equipment": "Cable", "sfr": "high"},
         {"name": "Cable Fly (mid)", "equipment": "Cable", "sfr": "high"},
         {"name": "High-to-Low Cable Fly", "equipment": "Cable", "sfr": "high"},
+        {"name": "Cable Crossover", "equipment": "Cable", "sfr": "high"},
         {"name": "Pec Deck", "equipment": "Machine", "sfr": "high"},
         {"name": "Incline DB Fly", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Flat Barbell Bench Press", "equipment": "Barbell", "sfr": "high"},
@@ -18,9 +19,12 @@ EXERCISES = {
         {"name": "Dips (chest focus)", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Flat DB Fly", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "DB Pullover", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Svend Press", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Squeeze Press", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Smith Machine Bench Press", "equipment": "Machine", "sfr": "medium"},
         {"name": "Landmine Press", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Push-Up", "equipment": "Bodyweight", "sfr": "medium"},
+        {"name": "Archer Push-Up", "equipment": "Bodyweight", "sfr": "medium"},
     ],
     "Lat": [
         # High SFR
@@ -43,18 +47,23 @@ EXERCISES = {
         {"name": "Meadows Row", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Rack Pull", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Hex Bar Deadlift", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Oberer Rücken": [
         # High SFR — Traps / Rhomboids / Mid-back
         {"name": "Chest-Supported Row (high)", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Seated Cable Row (high pulley)", "equipment": "Cable", "sfr": "high"},
         {"name": "Prone Y-Raise", "equipment": "Dumbbell", "sfr": "high"},
-        {"name": "Band Pull-Apart", "equipment": "Equipment", "sfr": "high"},
+        {"name": "Prone W-Raise", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Band Pull-Apart", "equipment": "Band", "sfr": "high"},
+        {"name": "Cable Pull-Apart", "equipment": "Cable", "sfr": "high"},
+        {"name": "Kettlebell Shrug", "equipment": "Kettlebell", "sfr": "high"},
         # Medium SFR
         {"name": "Barbell Shrug", "equipment": "Barbell", "sfr": "medium"},
         {"name": "DB Shrug", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Upright Row (wide grip)", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Cable Shrug", "equipment": "Cable", "sfr": "medium"},
+        {"name": "Farmer's Carry", "equipment": "Dumbbell", "sfr": "medium"},
     ],
     "Schulter Hinten": [
         # High SFR — Rear Delts
@@ -65,6 +74,7 @@ EXERCISES = {
         {"name": "Rear Delt Fly (DB)", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Bent-Over Rear Delt Raise (DB)", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Cable Rear Delt Fly (low)", "equipment": "Cable", "sfr": "high"},
+        {"name": "Band Pull-Apart (rear delt focus)", "equipment": "Band", "sfr": "high"},
         # Medium SFR
         {"name": "Seated DB Rear Delt Raise", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Wide-Grip Upright Row", "equipment": "Barbell", "sfr": "medium"},
@@ -76,6 +86,8 @@ EXERCISES = {
         {"name": "Machine Lateral Raise", "equipment": "Machine", "sfr": "high"},
         {"name": "Dumbbell Lateral Raise", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Landmine Lateral Raise", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Cable Y-Raise", "equipment": "Cable", "sfr": "high"},
+        {"name": "DB Y-Raise", "equipment": "Dumbbell", "sfr": "high"},
         # Medium SFR
         {"name": "Seated DB Press", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Standing DB Press", "equipment": "Dumbbell", "sfr": "medium"},
@@ -84,6 +96,7 @@ EXERCISES = {
         {"name": "Barbell OHP (standing)", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Machine Shoulder Press", "equipment": "Machine", "sfr": "medium"},
         {"name": "Smith Machine OHP", "equipment": "Machine", "sfr": "medium"},
+        {"name": "Pike Push-Up", "equipment": "Bodyweight", "sfr": "medium"},
     ],
     "Biceps": [
         # High SFR
@@ -96,6 +109,7 @@ EXERCISES = {
         {"name": "EZ-Bar Curl", "equipment": "Barbell", "sfr": "high"},
         {"name": "Barbell Curl", "equipment": "Barbell", "sfr": "high"},
         {"name": "Standing DB Curl", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Bayesian Curl (cable)", "equipment": "Cable", "sfr": "high"},
         # Medium SFR
         {"name": "Hammer Curl", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Concentration Curl", "equipment": "Dumbbell", "sfr": "medium"},
@@ -103,6 +117,7 @@ EXERCISES = {
         {"name": "Reverse Curl", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Drag Curl", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Zottman Curl", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Band Curl", "equipment": "Band", "sfr": "medium"},
     ],
     "Triceps": [
         # High SFR
@@ -122,6 +137,7 @@ EXERCISES = {
         {"name": "Smith Machine CG Press", "equipment": "Machine", "sfr": "medium"},
         {"name": "Reverse Pushdown", "equipment": "Cable", "sfr": "medium"},
         {"name": "Kickback", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Band Pushdown", "equipment": "Band", "sfr": "medium"},
     ],
     "Quads": [
         # High SFR
@@ -134,6 +150,7 @@ EXERCISES = {
         {"name": "Barbell Front Squat", "equipment": "Barbell", "sfr": "high"},
         {"name": "Goblet Squat", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Pause Squat", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Heel-Elevated Squat", "equipment": "Barbell", "sfr": "high"},
         # Medium SFR
         {"name": "Barbell Back Squat", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Smith Machine Squat", "equipment": "Machine", "sfr": "medium"},
@@ -142,6 +159,7 @@ EXERCISES = {
         {"name": "Walking Lunges", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Reverse Lunge", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Step-Up", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Hex Bar Squat", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Hamstrings": [
         # High SFR
@@ -150,6 +168,7 @@ EXERCISES = {
         {"name": "Leg Curl (standing)", "equipment": "Machine", "sfr": "high"},
         {"name": "Romanian Deadlift (barbell)", "equipment": "Barbell", "sfr": "high"},
         {"name": "Romanian Deadlift (dumbbell)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Single-Leg Romanian Deadlift", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Stiff-Leg Deadlift", "equipment": "Barbell", "sfr": "high"},
         {"name": "45° Back Extension", "equipment": "Machine", "sfr": "high"},
         {"name": "Cable Pull-Through", "equipment": "Cable", "sfr": "high"},
@@ -158,6 +177,8 @@ EXERCISES = {
         {"name": "Glute-Ham Raise", "equipment": "Machine", "sfr": "medium"},
         {"name": "Good Morning", "equipment": "Barbell", "sfr": "medium"},
         {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Hex Bar Deadlift", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Kettlebell Swing", "equipment": "Kettlebell", "sfr": "medium"},
         {"name": "Bulgarian Split Squat", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
     ],
@@ -167,15 +188,18 @@ EXERCISES = {
         {"name": "Smith Machine Hip Thrust", "equipment": "Machine", "sfr": "high"},
         {"name": "DB Hip Thrust", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Single-Leg Hip Thrust", "equipment": "Bodyweight", "sfr": "high"},
+        {"name": "Banded Hip Thrust", "equipment": "Band", "sfr": "high"},
         {"name": "Cable Kickback", "equipment": "Cable", "sfr": "high"},
         {"name": "Reverse Hyper", "equipment": "Machine", "sfr": "high"},
         {"name": "Cable Pull-Through", "equipment": "Cable", "sfr": "high"},
+        {"name": "Frog Pump", "equipment": "Bodyweight", "sfr": "high"},
         # Medium SFR
         {"name": "Glute Bridge", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Abductor Machine", "equipment": "Machine", "sfr": "medium"},
         {"name": "Bulgarian Split Squat (glute focus)", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Step-Up (glute focus)", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Sumo Deadlift", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Kettlebell Swing", "equipment": "Kettlebell", "sfr": "medium"},
         {"name": "Deadlift", "equipment": "Barbell", "sfr": "medium"},
     ],
     "Calves": [
@@ -184,24 +208,27 @@ EXERCISES = {
         {"name": "Standing Calf Raise (machine)", "equipment": "Machine", "sfr": "high"},
         {"name": "Standing Calf Raise (Smith)", "equipment": "Machine", "sfr": "high"},
         {"name": "Single-Leg Calf Raise (BW)", "equipment": "Bodyweight", "sfr": "high"},
+        {"name": "Single-Leg Calf Raise (DB)", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Seated Calf Raise", "equipment": "Machine", "sfr": "high"},
         {"name": "Tibialis Raise", "equipment": "Bodyweight", "sfr": "high"},
         # Medium SFR
         {"name": "Standing Calf Raise (DB)", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Seated Calf Raise (DB)", "equipment": "Dumbbell", "sfr": "medium"},
         {"name": "Leg Press Calf Raise", "equipment": "Machine", "sfr": "medium"},
+        {"name": "Hack Squat Calf Raise", "equipment": "Machine", "sfr": "medium"},
     ],
     "Abs": [
         # High SFR
         {"name": "Cable Crunch", "equipment": "Cable", "sfr": "high"},
         {"name": "Machine Crunch", "equipment": "Machine", "sfr": "high"},
-        {"name": "Decline Weighted Crunch", "equipment": "Equipment", "sfr": "high"},
+        {"name": "Decline Weighted Crunch", "equipment": "Dumbbell", "sfr": "high"},
         {"name": "Hanging Leg Raise", "equipment": "Bodyweight", "sfr": "high"},
         {"name": "Toes to Bar", "equipment": "Bodyweight", "sfr": "high"},
         {"name": "Ab Wheel Rollout", "equipment": "Equipment", "sfr": "high"},
         {"name": "Barbell Rollout", "equipment": "Barbell", "sfr": "high"},
         {"name": "Cable Woodchop", "equipment": "Cable", "sfr": "high"},
         {"name": "Reverse Crunch", "equipment": "Bodyweight", "sfr": "high"},
+        {"name": "Dragon Flag", "equipment": "Bodyweight", "sfr": "high"},
         # Medium SFR
         {"name": "Hanging Knee Raise", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Pallof Press", "equipment": "Cable", "sfr": "medium"},
@@ -212,5 +239,7 @@ EXERCISES = {
         {"name": "Bicycle Crunch", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Sit-Up", "equipment": "Bodyweight", "sfr": "medium"},
         {"name": "Plank", "equipment": "Bodyweight", "sfr": "medium"},
+        {"name": "Side Plank", "equipment": "Bodyweight", "sfr": "medium"},
+        {"name": "V-Up", "equipment": "Bodyweight", "sfr": "medium"},
     ],
 }

@@ -57,10 +57,13 @@ RIR_CONFIG_STRENGTH = {
 }
 
 def suggested_weight(ten_rm: float, rir: int, meso_type: str = "hypertrophy") -> float:
-    cfg = RIR_CONFIG_STRENGTH if meso_type == "strength" else RIR_CONFIG
-    pct = cfg.get(rir, cfg[2])["pct"]
-    # Convert 10RM to 1RM first, then apply percentage
     one_rm = ten_rm / 0.75
+    if meso_type == "strength":
+        pct = RIR_CONFIG_STRENGTH.get(rir, RIR_CONFIG_STRENGTH[2])["pct"]
+        return round(one_rm * pct / 2.5) * 2.5
+    # Hypertrophy: 10 reps at X RIR → failure at (10 + rir) reps
+    # Epley: weight = 1RM × 30 / (30 + fail_reps)
+    pct = 30 / (30 + 10 + rir)
     return round(one_rm * pct / 2.5) * 2.5
 
 def adjust_sets(planned: int, feedback: dict | None, mrv: int) -> tuple[int, str]:
@@ -431,10 +434,12 @@ with tab_new:
                 stored_10rm = get_ten_rm(chosen_ex, user_id=get_effective_user_id())
                 if stored_10rm and stored_10rm > 0:
                     w_sug = suggested_weight(stored_10rm, active_rir, meso_type)
+                    one_rm_disp = stored_10rm / 0.75
+                    pct_disp = int(round(w_sug / one_rm_disp * 100)) if one_rm_disp else 0
                     st.markdown(
                         f"<div class='weight-box'>"
                         f"Vorschlag: <b>{w_sug:.1f} kg</b>"
-                        f" &nbsp;<span style='color:#555'>{rcfg_active_pct}% · 10RM {stored_10rm:.1f} kg · {rcfg_active_label}</span>"
+                        f" &nbsp;<span style='color:#555'>{pct_disp}% v. 1RM · 10RM {stored_10rm:.1f} kg · {rcfg_active_label}</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
