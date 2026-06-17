@@ -452,21 +452,28 @@ with tab_new:
                     sc = st.columns([1, 3, 3, 3])
                     sc[0].markdown(f"<div style='padding-top:8px;color:#555;font-size:0.85rem'>{global_set}</div>",
                                    unsafe_allow_html=True)
-                    # Include chosen_ex in key so weight resets when exercise changes
-                    _ex_key = chosen_ex.replace(" ", "_")
+                    # Stable keys (no exercise name) so data survives exercise changes
+                    _w_key   = f"w_{mg}_{ex_idx}_{s}"
+                    _r_key   = f"r_{mg}_{ex_idx}_{s}"
+                    _rir_key = f"rir_{mg}_{ex_idx}_{s}"
+                    # Reset weight default when user picks a different exercise
+                    _ex_changed = st.session_state.get(f"_last_ex_{mg}_{ex_idx}") != chosen_ex
+                    if _ex_changed:
+                        st.session_state[_w_key] = w_default
+                        st.session_state[f"_last_ex_{mg}_{ex_idx}"] = chosen_ex
                     weight = sc[1].number_input(
                         "", min_value=0.0, step=2.5, value=w_default,
-                        key=f"w_{mg}_{ex_idx}_{_ex_key}_{s}", label_visibility="collapsed"
+                        key=_w_key, label_visibility="collapsed"
                     )
                     reps = sc[2].number_input(
                         "", min_value=1, max_value=50, value=10,
-                        key=f"r_{mg}_{ex_idx}_{_ex_key}_{s}", label_visibility="collapsed"
+                        key=_r_key, label_visibility="collapsed"
                     )
                     rir_actual = sc[3].selectbox(
                         "", options=[0, 1, 2, 3, 4, 5, 6],
                         index=active_rir,
                         format_func=lambda x: f"{x} RIR{'  ⬆️' if x > active_rir + 1 else ('  ⬇️' if x < active_rir - 1 else '')}",
-                        key=f"rir_{mg}_{ex_idx}_{_ex_key}_{s}", label_visibility="collapsed"
+                        key=_rir_key, label_visibility="collapsed"
                     )
                     mg_sets.append({
                         "exercise": chosen_ex, "set": global_set,
@@ -572,6 +579,15 @@ with tab_new:
 
     st.divider()
     notes = st.text_area("Notizen", placeholder="Wie war die Session?", label_visibility="collapsed")
+
+    _has_entries = any(
+        st.session_state.get(f"w_{mg}_{ei}_{s}", 0) > 0
+        for mg in session_muscles
+        for ei in range(st.session_state.get(f"ex_count_{mg}", 1))
+        for s in range(1, 10)
+    )
+    if _has_entries:
+        st.info("⚠️ Nicht gespeichert — bitte unten speichern bevor du die Seite verlässt.")
 
     if st.button("💾 Session speichern", type="primary", use_container_width=True):
         workout_id = create_workout(meso["id"], workout_date, week_num, notes, day_name=selected_day)
