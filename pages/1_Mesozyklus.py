@@ -323,7 +323,7 @@ st.session_state["_priority_muscles"] = priority_muscles
 _config_key = (n_days, tuple(chosen_muscles), tuple(priority_muscles))
 if st.session_state.get("_last_config") != _config_key:
     for k in list(st.session_state.keys()):
-        if k.startswith("edit_"):
+        if k.startswith("edit_") or k.startswith("sort_state_"):
             del st.session_state[k]
     st.session_state["_last_config"] = _config_key
 
@@ -344,7 +344,10 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
     edited_days = {}
     edited_order = []
     for day_name in _auto_order:
-        day_muscles = _auto_days.get(day_name, [])
+        # Use session state to persist user's drag changes across reruns
+        _state_key = f"sort_state_{day_name}"
+        auto_day_muscles = [m for m in _auto_days.get(day_name, []) if m in chosen_muscles]
+        day_muscles = [m for m in st.session_state.get(_state_key, auto_day_muscles) if m in chosen_muscles]
         bench_muscles = [m for m in chosen_muscles if m not in day_muscles]
 
         new_name = st.text_input(
@@ -352,21 +355,23 @@ with st.expander("🔧 Split anpassen (optional)", expanded=False):
         ).strip() or day_name
 
         if _has_sortables:
-            st.caption("Ziehen zum Verschieben — links = im Training, rechts = nicht im Plan")
+            st.caption("Ziehen zum Verschieben — links = im Training, rechts = nicht an dem Tag")
             result = sort_items(
                 [
                     {"header": "Im Training", "items": list(day_muscles)},
-                    {"header": "Nicht im Plan", "items": list(bench_muscles)},
+                    {"header": "Nicht an dem Tag", "items": list(bench_muscles)},
                 ],
                 multi_containers=True,
                 key=f"sort_{day_name}",
             )
             chosen_day = [m for m in result[0] if m in chosen_muscles]
+            st.session_state[_state_key] = chosen_day
         else:
             chosen_day = st.multiselect(
                 "Muskelgruppen", options=chosen_muscles, default=day_muscles,
                 key=f"edit_{day_name}", label_visibility="collapsed",
             )
+            st.session_state[_state_key] = chosen_day
 
         edited_days[new_name] = chosen_day
         edited_order.append(new_name)
