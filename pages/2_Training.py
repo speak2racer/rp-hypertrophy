@@ -352,9 +352,15 @@ with tab_new:
         planned_sets = max(1, round(weekly_sets / freq))
         mrv_per_session = max(1, round(vol.get("MRV", 20) / freq))
 
-        # Adjust based on last session feedback
+        # Pre-session soreness (= how sore from PREVIOUS session) → affects THIS session's sets
+        _SOR_OPTS = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]
+        _sor_key = f"pre_sor_{mg}"
+        _cur_sor_str = st.session_state.get(_sor_key, _SOR_OPTS[0])
+        cur_soreness = (_SOR_OPTS.index(_cur_sor_str) + 1) if _cur_sor_str in _SOR_OPTS else 1
+
         fb = last_feedback.get(mg)
-        target_sets, fb_reason = adjust_sets(planned_sets, fb, mrv_per_session)
+        fb_for_adjust = {**(fb or {}), "soreness": cur_soreness}
+        target_sets, fb_reason = adjust_sets(planned_sets, fb_for_adjust, mrv_per_session)
 
         feedback_badge = (
             f"<span class='mg-badge' title='{fb_reason}'>"
@@ -370,6 +376,11 @@ with tab_new:
             f"{feedback_badge}"
             f"</div>",
             unsafe_allow_html=True
+        )
+
+        st.radio(
+            "😣 Muskelkater von letzter Einheit",
+            _SOR_OPTS, index=cur_soreness - 1, horizontal=True, key=_sor_key,
         )
 
         all_options = [e["name"] for e in EXERCISES.get(mg, [])]
@@ -537,8 +548,8 @@ with tab_new:
                 ref_date = last_sets[0]["date"]
                 perf_info = f"{sign}{delta_pct:.1f}% Volumen vs. {ref_date}"
 
-        # Feedback expander — only pump + soreness manual
-        with st.expander("💬 Feedback nach der Session", expanded=False):
+        # Feedback expander — only pump (soreness entered before sets above)
+        with st.expander("💬 Pump nach der Session", expanded=False):
             if last_sets:
                 ref_lines = " &nbsp;|&nbsp; ".join(
                     f"{s['exercise']}: <b>{s['weight']}kg × {s['reps']} ({s['rpe']} RIR)</b>"
@@ -563,23 +574,14 @@ with tab_new:
             else:
                 st.caption("⚡ Performance wird beim Speichern automatisch berechnet.")
 
-            st.caption(
-                "💡 **Pump** = wie stark der Muskel *während* dem Training gepumpt/gefüllt war. "
-                "Guter Pump zeigt gute Durchblutung und Reiz. "
-                "**Soreness** = Muskelkater *am nächsten Tag*. "
-                "Hohe Soreness → App reduziert die Sätze bis du erholt bist."
-            )
+            st.caption("💡 **Pump** = wie stark der Muskel *während* dem Training gepumpt/gefüllt war.")
 
             _PUMP_OPTS = ["1 – Kaum spürbar", "2 – Wenig", "3 – Gut", "4 – Stark", "5 – Extrem"]
-            _SOR_OPTS  = ["1 – Keine", "2 – Leicht", "3 – Mittel", "4 – Stark", "5 – Sehr stark"]
 
             pump_sel = st.radio("Pump 💉", _PUMP_OPTS, index=2, horizontal=True, key=f"pump_{mg}")
-            sor_sel  = st.radio("Soreness 😣", _SOR_OPTS, index=0, horizontal=True, key=f"sor_{mg}")
-
             pump = _PUMP_OPTS.index(pump_sel) + 1
-            soreness = _SOR_OPTS.index(sor_sel) + 1
 
-        session_sets[mg + "__feedback"] = {"pump": pump, "soreness": soreness, "performance": auto_perf}
+        session_sets[mg + "__feedback"] = {"pump": pump, "soreness": cur_soreness, "performance": auto_perf}
 
     st.divider()
     notes = st.text_area("Notizen", placeholder="Wie war die Session?", label_visibility="collapsed")
