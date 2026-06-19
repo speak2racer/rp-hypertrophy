@@ -217,6 +217,38 @@ EXERCISES = {
         {"name": "Leg Press Calf Raise", "equipment": "Machine", "sfr": "medium"},
         {"name": "Hack Squat Calf Raise", "equipment": "Machine", "sfr": "medium"},
     ],
+    "Schulter Vorne": [
+        # MEV=0: wird durch Pressing mittrainiert – nur bei Bedarf direkt trainieren
+        {"name": "Front Raise (DB)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Front Raise (Cable)", "equipment": "Cable", "sfr": "high"},
+        {"name": "Front Raise (Plate)", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Barbell OHP (standing)", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Barbell OHP (seated)", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Machine Shoulder Press", "equipment": "Machine", "sfr": "medium"},
+        {"name": "Landmine Press", "equipment": "Barbell", "sfr": "medium"},
+    ],
+    "Traps": [
+        {"name": "Barbell Shrug", "equipment": "Barbell", "sfr": "high"},
+        {"name": "DB Shrug", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Cable Shrug", "equipment": "Cable", "sfr": "high"},
+        {"name": "Machine Shrug", "equipment": "Machine", "sfr": "high"},
+        {"name": "Trap Bar Shrug", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Rack Pull (upper trap focus)", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Upright Row (narrow grip)", "equipment": "Barbell", "sfr": "medium"},
+        {"name": "Farmer's Carry", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Face Pull (trap focus)", "equipment": "Cable", "sfr": "medium"},
+    ],
+    "Forearms": [
+        {"name": "Wrist Curl (barbell)", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Wrist Curl (dumbbell)", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Reverse Wrist Curl", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Hammer Curl", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Reverse Curl", "equipment": "Barbell", "sfr": "high"},
+        {"name": "Zottman Curl", "equipment": "Dumbbell", "sfr": "high"},
+        {"name": "Farmer's Carry", "equipment": "Dumbbell", "sfr": "medium"},
+        {"name": "Dead Hang", "equipment": "Bodyweight", "sfr": "medium"},
+        {"name": "Plate Pinch", "equipment": "Barbell", "sfr": "medium"},
+    ],
     "Abs": [
         # High SFR
         {"name": "Cable Crunch", "equipment": "Cable", "sfr": "high"},
