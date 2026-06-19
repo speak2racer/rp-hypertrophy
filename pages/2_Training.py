@@ -314,6 +314,47 @@ with tab_new:
 
     st.divider()
 
+    # ── Rest timer ────────────────────────────────────────────────────────────
+    import streamlit.components.v1 as _cv1
+    _btn = "background:#222;color:#ccc;border:1px solid #444;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.82rem"
+    _cv1.html(f"""
+    <div id="rest-bar" style="display:flex;align-items:center;gap:10px;padding:8px 14px;
+         background:#1a1a1a;border-radius:8px;border:1px solid #2a2a2a;flex-wrap:wrap">
+      <span style="font-size:0.8rem;color:#666;white-space:nowrap">⏱ Pause:</span>
+      <button onclick="startT(90)"  style="{_btn}">1:30</button>
+      <button onclick="startT(120)" style="{_btn}">2:00</button>
+      <button onclick="startT(180)" style="{_btn}">3:00</button>
+      <button onclick="startT(240)" style="{_btn}">4:00</button>
+      <span id="tdisp" style="font-size:1.15rem;font-weight:700;color:#4caf50;
+            min-width:52px;text-align:center">--:--</span>
+      <button onclick="resetT()" style="{_btn}">✕</button>
+      <span id="tdone" style="font-size:0.8rem;color:#4caf50;display:none">✅ Los!</span>
+    </div>
+    <script>
+    var _iv=null;
+    function startT(s){{
+      clearInterval(_iv);
+      document.getElementById('tdone').style.display='none';
+      var r=s, d=document.getElementById('tdisp');
+      d.style.display='inline'; d.style.color='#4caf50';
+      function tick(){{
+        var m=Math.floor(r/60),sc=r%60;
+        d.textContent=m+':'+(sc<10?'0':'')+sc;
+        if(r<=10) d.style.color='#f44336';
+        if(r<=0){{clearInterval(_iv);d.style.display='none';
+          document.getElementById('tdone').style.display='inline';return;}}
+        r--;
+      }}
+      tick(); _iv=setInterval(tick,1000);
+    }}
+    function resetT(){{clearInterval(_iv);
+      var d=document.getElementById('tdisp');
+      d.textContent='--:--';d.style.color='#4caf50';d.style.display='inline';
+      document.getElementById('tdone').style.display='none';
+    }}
+    </script>
+    """, height=52)
+
     # ── Exercise blocks ───────────────────────────────────────────────────────
     session_sets = {}
     rcfg_active = rir_cfg[active_rir]
@@ -423,8 +464,23 @@ with tab_new:
                     key=f"nsets_{mg}_{ex_idx}", label_visibility="collapsed"
                 )
 
-                # Weight suggestion from stored 10RM + progression vs last session
+                # Warm-up protocol (first exercise per muscle only)
                 stored_10rm = get_ten_rm(chosen_ex, user_id=get_effective_user_id())
+                if ex_idx == 0 and stored_10rm and stored_10rm > 0:
+                    w_work = suggested_weight(stored_10rm, active_rir, meso_type)
+                    wu = [
+                        (round(w_work * 0.50 / 2.5) * 2.5, 10),
+                        (round(w_work * 0.70 / 2.5) * 2.5, 5),
+                        (round(w_work * 0.85 / 2.5) * 2.5, 2),
+                    ]
+                    with st.expander("🔥 Aufwärmsätze", expanded=False):
+                        st.caption("Helms-Protokoll — nicht im Training getrackt, nur als Referenz.")
+                        wu_cols = st.columns(3)
+                        for i, (wkg, wreps) in enumerate(wu):
+                            pct = int(round(wkg / w_work * 100))
+                            wu_cols[i].metric(f"Satz {i+1}", f"{wkg:.1f} kg", f"{wreps} Wdh. · {pct}%")
+
+                # Weight suggestion from stored 10RM + progression vs last session
                 if stored_10rm and stored_10rm > 0:
                     w_sug = suggested_weight(stored_10rm, active_rir, meso_type)
                     one_rm_disp = stored_10rm / 0.75
