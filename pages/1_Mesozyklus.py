@@ -406,9 +406,21 @@ with st.container(border=True):
     )
     freq_cols = st.columns(min(len(chosen_muscles), 4))
     for i, mg in enumerate(chosen_muscles):
-        rec     = RP_VOLUMES[mg]["freq_per_week"]
-        badge   = _freq_badge(freq_actual[mg], rec)
-        icon_mg = RP_VOLUMES[mg].get("icon", "💪")
+        vol     = RP_VOLUMES[mg]
+        icon_mg = vol.get("icon", "💪")
+        # Frequenzempfehlung dynamisch aus geplantem Wochenvolumen:
+        # Wie viele Sessions brauche ich damit kein Tag >8 Sätze hat?
+        import math
+        mev        = vol.get("MEV", 6)
+        mrv        = vol.get("MRV", 20)
+        # Wochensätze grob auf MAV-Mitte schätzen
+        est_weekly = vol.get("MAV_low", mev + 2)
+        # Max ~8 Sätze pro Session für die meisten Muskeln (RP-Faustregel)
+        max_per_sess = 8
+        rec_dynamic  = max(1, min(6, math.ceil(est_weekly / max_per_sess)))
+        # Mindestens 1, maximal RP-Empfehlung aus den Volumen-Daten
+        rec          = max(1, min(vol.get("freq_per_week", 2), rec_dynamic + 1))
+        badge         = _freq_badge(freq_actual[mg], rec)
         freq_cols[i % 4].markdown(
             f"**{icon_mg} {mg}**  \n"
             f"<span style='font-size:0.8rem;color:#888'>{badge}</span>",
