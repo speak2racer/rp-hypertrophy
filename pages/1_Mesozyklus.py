@@ -12,19 +12,21 @@ from database import create_mesocycle, save_muscle_config, get_mesocycles, updat
 from calibration import get_calibrated_volumes
 
 # ── Kategorien & Indirekt-Hinweise ───────────────────────────────────────────
-_PUSH = ["Chest", "Schulter Seite", "Triceps"]
-_PULL = ["Lat", "Oberer Rücken", "Schulter Hinten", "Biceps"]
+_PUSH = ["Chest", "Schulter Seite", "Schulter Vorne", "Triceps"]
+_PULL = ["Lat", "Oberer Rücken", "Traps", "Schulter Hinten", "Biceps", "Forearms"]
 _LEGS = ["Quads", "Hamstrings", "Glutes", "Calves"]
 _CORE = ["Abs"]
 
 _INDIRECT = {
-    "Triceps":         "Wird durch alle Drückübungen (Bankdrücken, OHP) mittrainiert",
-    "Biceps":          "Wird durch alle Zugübungen (Rudern, Pulldown) mittrainiert",
-    "Schulter Hinten": "Wird durch Rudern mittrainiert",
-    "Hamstrings":      "Wird leicht durch Kniebeugen mittrainiert",
-    "Glutes":          "Wird durch Kniebeugen und Deadlifts mittrainiert",
-    "Calves":          "Wird leicht durch Kniebeugen und Deadlifts mittrainiert",
-    "Abs":             "Wird als Stabilisator bei Kniebeugen, Deadlift und OHP aktiv",
+    "Schulter Vorne": "MEV=0 — wird durch Bankdrücken & OHP vollständig mittrainiert",
+    "Triceps":        "Wird durch alle Drückübungen (Bankdrücken, OHP) mittrainiert",
+    "Biceps":         "Wird durch alle Zugübungen (Rudern, Pulldown) mittrainiert",
+    "Schulter Hinten":"Wird durch Rudern mittrainiert",
+    "Forearms":       "Wird durch Curls, Rudern und Zugübungen mittrainiert",
+    "Hamstrings":     "Wird leicht durch Kniebeugen mittrainiert",
+    "Glutes":         "MEV=0 — wird durch Kniebeugen und Deadlifts ausreichend mittrainiert",
+    "Calves":         "Wird leicht durch Kniebeugen und Deadlifts mittrainiert",
+    "Abs":            "Wird als Stabilisator bei Kniebeugen, Deadlift und OHP aktiv",
 }
 
 _MG_CATEGORIES = {
