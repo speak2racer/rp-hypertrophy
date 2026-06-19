@@ -406,6 +406,7 @@ with tab_new:
             unsafe_allow_html=True
         )
 
+        last_sets = get_last_sets_for_muscle(meso["id"], mg, day_name=selected_day)
         all_options = [e["name"] for e in EXERCISES.get(mg, [])]
         rec_ex = recommended_exercises(target_sets)
 
@@ -586,7 +587,6 @@ with tab_new:
         session_sets[mg] = mg_sets
 
         # Auto-calculate performance from volume comparison
-        last_sets = get_last_sets_for_muscle(meso["id"], mg, day_name=selected_day)
         auto_perf = 3  # default: gleich
         perf_label = "= Gleich"
         perf_info = None
