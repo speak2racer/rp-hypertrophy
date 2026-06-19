@@ -243,12 +243,22 @@ with st.container(border=True):
 st.markdown("### Schritt 2 · Muskelgruppen & Trainingstage")
 with st.container(border=True):
 
-    n_days = st.select_slider(
-        "Wie viele Tage pro Woche möchtest du trainieren?",
+    sl_col1, sl_col2 = st.columns(2)
+    n_days = sl_col1.select_slider(
+        "Wie viele unterschiedliche Einheiten möchtest du haben?",
         options=[2, 3, 4, 5, 6],
-        value=st.session_state.get("n_days_select", 4),
-        format_func=lambda x: f"{x} Tage / Woche",
+        value=st.session_state.get("n_days_select", 3),
+        format_func=lambda x: f"{x} Einheiten",
         key="n_days_select",
+        help="Anzahl verschiedener Trainingstag-Typen, z.B. Push / Pull / Legs = 3 Einheiten",
+    )
+    phys_days = sl_col2.select_slider(
+        "Wie viele physische Trainingstage pro Woche?",
+        options=list(range(n_days, 8)),
+        value=max(n_days, st.session_state.get("_phys_days", n_days)),
+        format_func=lambda x: f"{x} Tage / Woche",
+        key="_phys_days",
+        help="Wie oft du tatsächlich pro Woche trainierst — kann mehr sein als Einheiten (z.B. PPL 6×)",
     )
 
     st.markdown("**Welche Muskelgruppen möchtest du direkt trainieren?**")
@@ -452,16 +462,14 @@ with st.container(border=True):
     )
 
     if use_alt and _n_types >= 2:
-        # Wie viele physische Trainingstage pro Woche?
         alt_days = st.select_slider(
             "Physische Trainingstage pro Woche",
-            options=list(range(2, 7)),
-            value=st.session_state.get("_alt_days", min(3, _n_types + 1)),
+            options=list(range(2, 8)),
+            value=max(2, st.session_state.get("_alt_days", phys_days)),
             format_func=lambda x: f"{x} Tage / Woche",
             key="_alt_days",
         )
 
-        # Baue 2-Wochen-Rotation: Session i → split_order[i % n_types]
         _cycle = [split_order[i % _n_types] for i in range(alt_days * 2)]
         _woche1 = _cycle[:alt_days]
         _woche2 = _cycle[alt_days:]
