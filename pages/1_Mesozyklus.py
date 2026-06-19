@@ -22,6 +22,7 @@ _INDIRECT = {
     "Triceps":        "Wird durch alle Drückübungen (Bankdrücken, OHP) mittrainiert",
     "Biceps":         "Wird durch alle Zugübungen (Rudern, Pulldown) mittrainiert",
     "Schulter Hinten":"Wird durch Rudern mittrainiert",
+    "Traps":          "Wird durch Deadlifts, Rudern und OHP stark mittrainiert",
     "Forearms":       "Wird durch Curls, Rudern und Zugübungen mittrainiert",
     "Hamstrings":     "Wird leicht durch Kniebeugen mittrainiert",
     "Glutes":         "MEV=0 — wird durch Kniebeugen und Deadlifts ausreichend mittrainiert",
