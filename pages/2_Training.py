@@ -38,13 +38,13 @@ def week_rir(week: int, total_weeks: int) -> int:
         return 2
     return 1
 
-# Hypertrophie: 8–12 Wdh., moderate Intensität
+# Hypertrophie: 6–15 Wdh. (Helms: optimaler Hypertrophiebereich 6–12, bis 15 effektiv)
 RIR_CONFIG = {
-    4: {"label": "Deload", "pct": 0.65,  "color": "#6b9fd4", "bg": "#141414"},
-    3: {"label": "3 RIR",  "pct": 0.875, "color": "#6b9fd4", "bg": "#141414"},
-    2: {"label": "2 RIR",  "pct": 0.925, "color": "#e0a020", "bg": "#141414"},
-    1: {"label": "1 RIR",  "pct": 0.975, "color": "#c0392b", "bg": "#141414"},
-    0: {"label": "0 RIR",  "pct": 1.0,   "color": "#c0392b", "bg": "#141414"},
+    4: {"label": "Deload", "pct": 0.65,  "reps": "10–15", "color": "#6b9fd4", "bg": "#141414"},
+    3: {"label": "3 RIR",  "pct": 0.875, "reps": "6–10",  "color": "#6b9fd4", "bg": "#141414"},
+    2: {"label": "2 RIR",  "pct": 0.925, "reps": "8–12",  "color": "#e0a020", "bg": "#141414"},
+    1: {"label": "1 RIR",  "pct": 0.975, "reps": "10–15", "color": "#c0392b", "bg": "#141414"},
+    0: {"label": "0 RIR",  "pct": 1.0,   "reps": "8–12",  "color": "#c0392b", "bg": "#141414"},
 }
 
 # Kraft: 3–6 Wdh., hohe Intensität — höhere % vom 1RM
@@ -334,8 +334,12 @@ with tab_new:
         cfg = muscle_configs.get(mg, {})
         exercises = cfg.get("exercises", [e["name"] for e in EXERCISES.get(mg, [])][:2])
         start_sets = cfg.get("start_sets", vol.get("MEV", 8))
-        weekly_sets = (max(vol.get("MEV", 6) - 2, 2) if week_num > meso["weeks"]
-                       else min(start_sets + (week_num - 1) * 2, vol.get("MRV", 20)))
+        if week_num > meso["weeks"]:
+            # Deload: 50% der Peak-Woche (Helms/RP: halbes Volumen bei reduzierter Intensität)
+            peak_weekly = min(start_sets + (meso["weeks"] - 1) * 2, vol.get("MRV", 20))
+            weekly_sets = max(1, round(peak_weekly * 0.5))
+        else:
+            weekly_sets = min(start_sets + (week_num - 1) * 2, vol.get("MRV", 20))
 
         # Divide weekly volume by training frequency → sets per session
         freq = max(mg_frequency.get(mg, 1), 1)
@@ -419,16 +423,30 @@ with tab_new:
                     key=f"nsets_{mg}_{ex_idx}", label_visibility="collapsed"
                 )
 
-                # Weight suggestion from stored 10RM
+                # Weight suggestion from stored 10RM + progression vs last session
                 stored_10rm = get_ten_rm(chosen_ex, user_id=get_effective_user_id())
                 if stored_10rm and stored_10rm > 0:
                     w_sug = suggested_weight(stored_10rm, active_rir, meso_type)
                     one_rm_disp = stored_10rm / 0.75
                     pct_disp = int(round(w_sug / one_rm_disp * 100)) if one_rm_disp else 0
+                    # Progression delta vs last session for this exercise
+                    last_ex_sets = [s for s in (last_sets or []) if s.get("exercise") == chosen_ex]
+                    if last_ex_sets:
+                        last_w = sum(s["weight"] for s in last_ex_sets) / len(last_ex_sets)
+                        delta_w = w_sug - last_w
+                        if delta_w >= 2.5:
+                            prog_str = f"&nbsp;·&nbsp;<span style='color:#4caf50'>↑ +{delta_w:.1f}kg vs. letzte Session</span>"
+                        elif delta_w <= -2.5:
+                            prog_str = f"&nbsp;·&nbsp;<span style='color:#f44336'>↓ {delta_w:.1f}kg vs. letzte Session</span>"
+                        else:
+                            prog_str = f"&nbsp;·&nbsp;<span style='color:#888'>= gleich wie letzte Session</span>"
+                    else:
+                        prog_str = ""
                     st.markdown(
                         f"<div class='weight-box'>"
                         f"Vorschlag: <b>{w_sug:.1f} kg</b>"
-                        f" &nbsp;<span style='color:#555'>{pct_disp}% v. 1RM · 10RM {stored_10rm:.1f} kg · {rcfg_active_label}</span>"
+                        f"&nbsp;<span style='color:#555'>{pct_disp}% v. 1RM · 10RM {stored_10rm:.1f} kg · {rcfg_active_label}</span>"
+                        f"{prog_str}"
                         f"</div>",
                         unsafe_allow_html=True
                     )
@@ -437,7 +455,7 @@ with tab_new:
                     st.caption("⚙️ 10RM noch nicht hinterlegt → [Fortschritt → 10RM](3_Fortschritt)")
                     w_default = 0.0
 
-                reps_hint = rir_cfg.get(active_rir, {}).get("reps", "8–12") if is_strength else "8–12"
+                reps_hint = rir_cfg.get(active_rir, {}).get("reps", "8–12")
                 st.markdown(
                     f"<div class='set-header'>"
                     f"<div>#</div><div>kg</div>"
